@@ -473,11 +473,11 @@ def DDNS():
 
 
 
-def execute_ddns(port_keys, port_numbers):
+def execute_ddns(port_keys, port_SRV):
     try:
 
         # 构建命令并执行    启动ddnsSRV
-        command = ['python', 'py/ddnsSRV.py', str(port_numbers)]
+        command = ['python', 'py/ddnsSRV.py', str(port_SRV)]
         subprocess.run(command)
 
 
@@ -504,7 +504,7 @@ def ddns_py():
 
         # 启动ddsnIPV4
         threading.Thread(target=lambda: subprocess.run(['python', 'py/ddnsIPV4.py'])).start()
-        time.sleep(5)
+
 
 
 
@@ -518,12 +518,12 @@ def ddns_py():
         for port_keys in ['PORT1', 'PORT2', 'PORT3', 'PORT4', 'PORT5']:
             if port_keys in config_datas and config_datas[port_keys]['PORT'] is not None:
                 # 获取需要映射的端口号
-                port_numbers = config_datas[port_keys]['PORT']
+                port_SRV = config_datas[port_keys]['PORT']
 
                 # 多线程
-                thread = threading.Thread(target=execute_ddns, args=(port_keys, port_numbers))
+                thread = threading.Thread(target=execute_ddns, args=(port_keys, port_SRV))
                 thread.start()
-                time.sleep(5)
+
                 
     except Exception as e:
         app.logger.error(f"{e}")

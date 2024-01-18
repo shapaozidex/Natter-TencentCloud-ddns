@@ -12,7 +12,7 @@
  - 这里只讲述如何使用[Natter-TencentCloud-ddns](https://github.com/shapaozidex/Natter-TencentCloud-ddns)
 
 ## 教程
-2.0版本开始不再打包exe（想要打包自己用pyinstaller解决） 
+2.0版本开始不再打包exe，只发python脚本
     下面开始教程
 
 1.先把整个包下载下来  解压

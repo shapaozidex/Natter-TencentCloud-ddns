@@ -8,7 +8,8 @@
 
  - 此分支基于[Natter-v2](https://github.com/MikeWang000000/Natter)，支持TCP以及UDP（windows端暂不支持UDP，具体等natter主线修复）
 
- - Natter的具体功能及工作原理请自行前往[Natter-v2](https://github.com/MikeWang000000/Natter)查看，这里只讲述如何使用[Natter-TencentCloud-ddns](https://github.com/shapaozidex/Natter-TencentCloud-ddns)
+ - Natter的具体功能及工作原理请自行前往[Natter-v2](https://github.com/MikeWang000000/Natter)查看
+ - 这里只讲述如何使用[Natter-TencentCloud-ddns](https://github.com/shapaozidex/Natter-TencentCloud-ddns)
 
 ## 教程
 2.0版本开始不再打包exe（想要打包自己用pyinstaller解决） 

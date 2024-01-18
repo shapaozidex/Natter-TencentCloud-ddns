@@ -1,109 +1,86 @@
-# Natter (v2)
+## Natter-TencentCloud-ddns
+ 
+帮助 Natter 实现 SRV 端口及IP全自动DDNS  （支持多个端口同时SRV解析） 
 
-Expose your port behind full-cone NAT to the Internet.
+可实现让支持SRV的软件，在不输入端口号的情况下就能直接访问对应的服务
+
+理论上只要能运行Natter的设备都能用（具体自测试）
+
+ - 此分支基于[Natter-v2](https://github.com/MikeWang000000/Natter)，支持TCP以及UDP（windows端暂不支持UDP，具体等natter主线修复）
+
+ - Natter的具体功能及工作原理请自行前往[Natter-v2](https://github.com/MikeWang000000/Natter)查看，这里只讲述如何使用[Natter-TencentCloud-ddns](https://github.com/shapaozidex/Natter-TencentCloud-ddns)
+
+## 教程
+2.0版本开始不再打包exe（想要打包自己用pyinstaller解决） 
+    下面开始教程
+
+1.先把整个包下载下来  解压
+
+
+
+2.打开[腾讯云 API 密钥](https://console.dnspod.cn/account/token/apikey)创建好api秘钥之后将它保存下来：
+![](.img/img01.png)
+
+
+
+3.打开腾讯云解析界面，随便创建两个解析，一个SRV类型的，一个A类型的 （如果你需要同时映射及穿透多个端口号就多创建几个SRV类型的）
+ 目前最多支持5个SRV解析,因为支持SRV的软件太少了,所以就只写了5个
+  这里直接照着我的一模一样的填就行了（防止不会弄而出错，反正后面都会被ddns自动改掉）
   
-[中文文档](docs/README.md)
+  _minecraft._tcp  |  SRV  |   默认  |  0 5 9999 tencent.com. 
+  -----------------|-------|---------|-------------------------
+  @                |   A   |   默认  |  99.99.99.99
+             
+![](.img/img02.png)
 
 
-## Quick start
 
-```bash
-python3 natter.py
-```
-
-Or, using Docker:
-
-```bash
-docker run --net=host nattertool/natter
-```
-
-```
-2023-11-01 01:00:08 [I] Natter v2.0.0-rc1
-2023-11-01 01:00:08 [I] Tips: Use `--help` to see help messages
-2023-11-01 01:00:12 [I]
-2023-11-01 01:00:12 [I] tcp://192.168.1.100:13483 <--Natter--> tcp://203.0.113.10:14500
-2023-11-01 01:00:12 [I]
-2023-11-01 01:00:12 [I] Test mode in on.
-2023-11-01 01:00:12 [I] Please check [ http://203.0.113.10:14500 ]
-2023-11-01 01:00:12 [I]
-2023-11-01 01:00:12 [I] LAN > 192.168.1.100:13483   [ OPEN ]
-2023-11-01 01:00:12 [I] LAN > 192.168.1.100:13483   [ OPEN ]
-2023-11-01 01:00:12 [I] LAN > 203.0.113.10:14500    [ OPEN ]
-2023-11-01 01:00:13 [I] WAN > 203.0.113.10:14500    [ OPEN ]
-2023-11-01 01:00:13 [I]
-```
-
-In the example above, `203.0.113.10` is your public IP address outside the full-cone NAT. Natter opened TCP port `203.0.113.10:14500` for testing.
-
-Visit `http://203.0.113.10:14500` outside your LAN, you will see the web page:
-
-```
-It works!
-
---------
-Natter
-```
+4.运行web.py文件,你可以在执行的时候加一个参数作为启动端口号（设备要先安装python2.7及以上，还要安装两个 第三方库 ）
+分别是两个库的安装命令分别是：
 
 
-## Usage
-
-```
-usage: natter.py [--version] [--help] [-v] [-q] [-u] [-k <interval>]
-                 [-s <address>] [-h <address>] [-e <path>] [-i <interface>]
-                 [-b <port>] [-m <method>] [-t <address>] [-p <port>] [-r]
-
-Expose your port behind full-cone NAT to the Internet.
-
-options:
-  --version, -V   show the version of Natter and exit
-  --help          show this help message and exit
-  -v              verbose mode, printing debug messages
-  -q              exit when mapped address is changed
-  -u              UDP mode
-  -k <interval>   seconds between each keep-alive
-  -s <address>    hostname or address to STUN server
-  -h <address>    hostname or address to keep-alive server
-  -e <path>       script path for notifying mapped address
-
-bind options:
-  -i <interface>  network interface name or IP to bind
-  -b <port>       port number to bind
-
-forward options:
-  -m <method>     forward method, common values are 'iptables', 'nftables',
-                  'socat', 'gost' and 'socket'
-  -t <address>    IP address of forward target
-  -p <port>       port number of forward target
-  -r              keep retrying until the port of forward target is open
-```
+pip install --upgrade tencentcloud-sdk-python
+pip install Flask
 
 
-## Usage for Docker
 
-Read [natter-docker](natter-docker) for details.
-
-
-## Use cases
-
-Expose local port 80 to the Internet, using built-in forward method:
-
-```bash
-python3 natter.py -p 80
-```
-
-Expose local port 80 to the Internet, using iptables kernel forward method (requires root permission):
-
-```bash
-sudo python3 natter.py -m iptables -p 80
-```
+5.运行web.py之后,在本机浏览器输入127.0.0.1:9876(或者你自己输入的端口号)
+默认只有127.0.0.1能访问到，想要让它能在公网或者局域网访问请自行编辑web.py文件(里面有说该怎么编辑)
+打开之点击 Git ID 然后把刚刚保存的API秘钥填上
+以及要ddns的域名(目前仅支持单个域名)
+![](.img/img03.png)
 
 
-## Dependencies
 
-- Python 2.7 (minimum), >= 3.6 (recommended)
-- No third-party modules are required.
+6.填完之后保存，然后点一次旁边的Git ID按钮(等它刷新完)
+在点击Git ID之后,它会帮你把一些参数填好(你只需要填没有填好的那些就行了)
 
 
-## License
 
-GNU General Public License v3.0
+7点击上面的ddns按钮,按照框里的提示去填,然后点击保存
+![](.img/img04.png)
+
+
+
+8.保存之后,点击上面的natter按钮,然后根据你需要的端口号去填(需要穿透多少个就填多少个)
+填完之后,点击最下面的保存
+![](.img/img05.png)
+
+
+
+9.全部弄完之后,点击右边的 主页 然后点击 开始natter 和 开始ddns
+即可开始工作(记得检测域名解析有没有生效)
+![](.img/img06.png)
+
+
+
+10.如果启动没反应，或者闪退报错啥的，那么大有可能是你 参数 填错了
+
+
+
+## 额外补充
+
+必须安装的两个模块(直接运行上面的pip命令即可安装)
+Flask
+tencentcloud-sdk-python
+

@@ -85,5 +85,8 @@ pip install Flask
 
 必须安装的两个模块(直接运行上面的pip命令即可安装)
 Flask
+
+****
+
 tencentcloud-sdk-python
 

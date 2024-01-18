@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+
+    <style>
+                nav {
+            background-color: #343a40;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            margin-bottom: 15px;
+        }
+
+        nav ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+        }
+
+        nav li {
+            margin: 0 10px;
+        }
+
+        nav a {
+            text-decoration: none;
+            color: #ffffff;
+            font-weight: bold;
+            padding: 8px 16px;
+            border-radius: 4px;
+            transition: background-color 0.3s ease;
+            display: inline-block;
+        }
+
+        nav a:hover {
+            background-color: #007bff;
+        }
+
+body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f8f9fa;
+        }
+
+        .container {
+            max-width: 960px;
+            margin: 0 auto;
+        }
+
+
+        .mt-5 {
+            margin-top: 5rem;
+        }
+
+
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-control {
+            display: block;
+            width: 100%;
+            padding: .375rem .75rem;
+            font-size: 1rem;
+            line-height: 1.85;
+            color: #495057;
+            background-color: #fff;
+            background-clip: padding-box;
+            border: 1px solid #ced4da;
+            border-radius: .25rem;
+            transition: border-color .15s ease-in-out,box-shadow .15s ease-in-out;
+        }
+
+        .btn-primary {
+            color: #fff;
+            background-color: #007bff;
+            border-color: #007bff;
+        }
+
+        .btn-primary:hover {
+            color: #fff;
+            background-color: #0056b3;
+            border-color: #0056b3;
+        }
+
+
+
+
+        .custom-submit-button {
+            font-size: 1.0rem;
+            padding: 0.70rem 1.0rem;
+            border-radius: 5px; 
+
+        }
+
+        header {
+            background-color: #343a40;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            padding: 15px 0;
+            text-align: center;
+        }
+
+        header h1 {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #ffffff;
+            margin: 0;
+        }
+
+
+
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Natter-TencentCloud-ddns</h1>
+    </header>
+    <nav>
+        <ul>
+            <li><a href="/natter">natter</a></li>
+            <li><a href="/ddns">ddns</a></li>
+            <li><a href="/GIT">Git ID</a></li>
+            <li><a href="/">主页</a></li>
+        </ul>
+    </nav>
+
+
+<div class="container mt-5">
+
+    <p style="font-size: 16px; text-align: center;">目前默认启动参数为 -p (将目标端口转发至外网)想要其它参数请自行修改代码</p>
+
+
+
+
+
+
+
+
+
+
+    <header>
+        <h1>填写你要穿透的端口号和SRV记录ID</h1>
+    </header>
+
+
+
+    <h1>PORT 1</h1>
+
+    <form method="post">
+
+        {{ form.hidden_tag() }}
+
+        <!-- 表单字段 -->
+        <div class="form-group">
+            {{ form.PORT1_record_id.label }}
+            {{ form.PORT1_record_id(class="form-control", placeholder="Git ID返回的ID（如果不想用SRV映射的话不用填）" ) }}
+        </div>
+    
+        <div class="form-group">
+            {{ form.PORT1_PORT.label }}
+            {{ form.PORT1_PORT(class="form-control", placeholder="需要穿透的端口号" ) }}
+        </div>
+
+        <div class="form-group">
+            {{  form.PORT1_protocols.label }}
+            {{  form.PORT1_protocols(class="form-control", placeholder="填TCP或UDP（大写）" ) }}
+        </div>
+    
+        <div class="form-group">
+            {{ form.PORT1_subdomain.label }}
+            {{ form.PORT1_subdomain(class="form-control", placeholder="SRV填法举例：_minecraft._tcp （minecraft代表服务名，tcp是协议）" ) }}
+        </div>
+
+        <div class="form-group">
+            {{ form.PORT1_record_line.label }}
+            {{ form.PORT1_record_line(class="form-control", placeholder="记录线路，没有特殊需求的话，填‘默认’即可" ) }}
+        </div>
+
+        <div class="form-group">
+            {{ form.PORT1_priority.label }}
+            {{ form.PORT1_priority(class="form-control", placeholder="SRV解析优先级，一般填0 5即可（0 5中间要有空格），当然，我不知道所有SRV都填05会怎么样" ) }}
+        </div>
+
+     <h1>PORT 2</h1>
+
+        <div class="form-group">
+            {{ form.PORT2_record_id.label }}
+            {{ form.PORT2_record_id(class="form-control", placeholder="Git ID返回的ID（如果不想用SRV映射的话不用填）" ) }}
+        </div>
+
+        <div class="form-group">
+            {{ form.PORT2_PORT.label }}
+            {{ form.PORT2_PORT(class="form-control", placeholder="需要穿透的端口号" ) }}
+        </div>
+
+        <div class="form-group">
+            {{  form.PORT2_protocols.label }}
+            {{  form.PORT2_protocols(class="form-control", placeholder="填TCP或UDP（大写）" ) }}
+        </div>
+
+        <div class="form-group">
+            {{ form.PORT2_subdomain.label }}
+            {{ form.PORT2_subdomain(class="form-control", placeholder="SRV填法举例：_minecraft._tcp （minecraft代表服务名，tcp是协议）" ) }}
+        </div>
+
+        <div class="form-group">
+            {{ form.PORT2_record_line.label }}
+            {{ form.PORT2_record_line(class="form-control", placeholder="记录线路，没有特殊需求的话，填‘默认’即可" ) }}
+        </div>
+
+        <div class="form-group">
+            {{ form.PORT2_priority.label }}
+            {{ form.PORT2_priority(class="form-control", placeholder="SRV解析优先级，一般填0 5即可（0 5中间要有空格），当然，我不知道所有SRV都填05会怎么样" ) }}
+        </div>
+
+     <h1>PORT 3</h1>
+
+        <div class="form-group">
+            {{ form.PORT3_record_id.label }}
+            {{ form.PORT3_record_id(class="form-control", placeholder="Git ID返回的ID（如果不想用SRV映射的话不用填）" ) }}
+        </div>
+    
+        <div class="form-group">
+            {{ form.PORT3_PORT.label }}
+            {{ form.PORT3_PORT(class="form-control", placeholder="需要穿透的端口号" ) }}
+        </div>
+
+        <div class="form-group">
+            {{  form.PORT3_protocols.label }}
+            {{  form.PORT3_protocols(class="form-control", placeholder="填TCP或UDP（大写）" ) }}
+        </div>
+    
+        <div class="form-group">
+            {{ form.PORT3_subdomain.label }}
+            {{ form.PORT3_subdomain(class="form-control", placeholder="SRV填法举例：_minecraft._tcp （minecraft代表服务名，tcp是协议）" ) }}
+        </div>
+
+        <div class="form-group">
+            {{ form.PORT3_record_line.label }}
+            {{ form.PORT3_record_line(class="form-control", placeholder="记录线路，没有特殊需求的话，填‘默认’即可" ) }}
+        </div>
+
+        <div class="form-group">
+            {{ form.PORT3_priority.label }}
+            {{ form.PORT3_priority(class="form-control", placeholder="SRV解析优先级，一般填0 5即可（0 5中间要有空格），当然，我不知道所有SRV都填05会怎么样" ) }}
+        </div>
+
+     <h1>PORT 4</h1>
+
+        <div class="form-group">
+            {{ form.PORT4_record_id.label }}
+            {{ form.PORT4_record_id(class="form-control", placeholder="Git ID返回的ID（如果不想用SRV映射的话不用填）" ) }}
+        </div>
+
+        <div class="form-group">
+            {{ form.PORT4_PORT.label }}
+            {{ form.PORT4_PORT(class="form-control", placeholder="需要穿透的端口号" ) }}
+        </div>
+
+        <div class="form-group">
+            {{  form.PORT4_protocols.label }}
+            {{  form.PORT4_protocols(class="form-control", placeholder="填TCP或UDP（大写）" ) }}
+        </div>
+
+        <div class="form-group">
+            {{ form.PORT4_subdomain.label }}
+            {{ form.PORT4_subdomain(class="form-control", placeholder="SRV填法举例：_minecraft._tcp （minecraft代表服务名，tcp是协议）" ) }}
+        </div>
+
+        <div class="form-group">
+            {{ form.PORT4_record_line.label }}
+            {{ form.PORT4_record_line(class="form-control", placeholder="记录线路，没有特殊需求的话，填‘默认’即可" ) }}
+        </div>
+
+        <div class="form-group">
+            {{ form.PORT4_priority.label }}
+            {{ form.PORT4_priority(class="form-control", placeholder="SRV解析优先级，一般填0 5即可（0 5中间要有空格），当然，我不知道所有SRV都填05会怎么样" ) }}
+        </div>
+
+     <h1>PORT 5</h1>
+
+        <div class="form-group">
+            {{ form.PORT5_record_id.label }}
+            {{ form.PORT5_record_id(class="form-control", placeholder="Git ID返回的ID（如果不想用SRV映射的话不用填）" ) }}
+        </div>
+    
+        <div class="form-group">
+            {{ form.PORT5_PORT.label }}
+            {{ form.PORT5_PORT(class="form-control", placeholder="需要穿透的端口号" ) }}
+        </div>
+
+        <div class="form-group">
+            {{  form.PORT5_protocols.label }}
+            {{  form.PORT5_protocols(class="form-control", placeholder="填TCP或UDP（大写）" ) }}
+        </div>
+    
+        <div class="form-group">
+            {{ form.PORT5_subdomain.label }}
+            {{ form.PORT5_subdomain(class="form-control", placeholder="SRV填法举例：_minecraft._tcp （minecraft代表服务名，tcp是协议）" ) }}
+        </div>
+
+        <div class="form-group">
+            {{ form.PORT5_record_line.label }}
+            {{ form.PORT5_record_line(class="form-control", placeholder="记录线路，没有特殊需求的话，填‘默认’即可" ) }}
+        </div>
+
+        <div class="form-group">
+            {{ form.PORT5_priority.label }}
+            {{ form.PORT5_priority(class="form-control", placeholder="SRV解析优先级，一般填0 5即可（0 5中间要有空格），当然，我不知道所有SRV都填05会怎么样" ) }}
+        </div>
+
+
+        <button type="submit" class="btn btn-primary custom-submit-button">保存</button>
+
+    </form>
+
+
+</div>
+
+</body>
+</html>

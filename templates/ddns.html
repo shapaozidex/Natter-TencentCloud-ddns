@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+
+    <style>
+                nav {
+            background-color: #343a40;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            margin-bottom: 15px;
+        }
+
+        nav ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+        }
+
+        nav li {
+            margin: 0 10px;
+        }
+
+        nav a {
+            text-decoration: none;
+            color: #ffffff;
+            font-weight: bold;
+            padding: 8px 16px;
+            border-radius: 4px;
+            transition: background-color 0.3s ease;
+            display: inline-block;
+        }
+
+        nav a:hover {
+            background-color: #007bff;
+        }
+
+body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f8f9fa;
+        }
+
+        .container {
+            max-width: 960px;
+            margin: 0 auto;
+        }
+
+
+        .mt-5 {
+            margin-top: 5rem;
+        }
+
+
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-control {
+            display: block;
+            width: 100%;
+            padding: .375rem .75rem;
+            font-size: 1rem;
+            line-height: 1.85;
+            color: #495057;
+            background-color: #fff;
+            background-clip: padding-box;
+            border: 1px solid #ced4da;
+            border-radius: .25rem;
+            transition: border-color .15s ease-in-out,box-shadow .15s ease-in-out;
+        }
+
+        .btn-primary {
+            color: #fff;
+            background-color: #007bff;
+            border-color: #007bff;
+        }
+
+        .btn-primary:hover {
+            color: #fff;
+            background-color: #0056b3;
+            border-color: #0056b3;
+        }
+
+
+
+
+        .custom-submit-button {
+            font-size: 1.0rem;
+            padding: 0.70rem 1.0rem;
+            border-radius: 5px; 
+
+        }
+
+        header {
+            background-color: #343a40;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            padding: 15px 0;
+            text-align: center;
+        }
+
+        header h1 {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #ffffff;
+            margin: 0;
+        }
+
+
+
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Natter-TencentCloud-ddns</h1>
+    </header>
+    <nav>
+        <ul>
+            <li><a href="/natter">natter</a></li>
+            <li><a href="/ddns">ddns</a></li>
+            <li><a href="/GIT">Git ID</a></li>
+            <li><a href="/">主页</a></li>
+        </ul>
+    </nav>
+
+<div class="container mt-5">
+
+    <header>
+        <h1>填写DDNS相关的信息</h1>
+    </header>
+
+
+
+    <form method="post">
+        {{ form.hidden_tag() }}
+
+        <!-- 表单字段 -->
+
+     <h1>IPV4</h1>
+
+        <div class="form-group">
+            {{ form.script1_record_id.label }}
+            {{ form.script1_record_id(class="form-control", placeholder="Record_ID") }}
+        </div>
+
+        <div class="form-group">
+            {{ form.script1_subdomain.label }}
+            {{ form.script1_subdomain(class="form-control", placeholder="主机记录，如 www，一般填‘@’即可。（代表所有链接都指向你解析的IP）") }}
+        </div>
+
+        <div class="form-group">
+            {{ form.script1_record_line.label }}
+            {{ form.script1_record_line(class="form-control", placeholder="记录线路，没有特殊需求的话，填‘默认’即可" ) }}
+        </div>
+
+        <div class="form-group">
+            {{ form.script1_RecordType.label }}
+            {{ form.script1_RecordType(class="form-control", placeholder="记录类型，填‘A’即可" ) }}
+        </div>
+
+        <div class="form-group">
+            {{ form.script1_sleep.label }}
+            {{ form.script1_sleep(class="form-control", placeholder="ddns检测更新的等待间隔，单位秒" ) }}
+        </div>
+
+     <h1>SRV</h1>
+
+        <div class="form-group">
+            {{ form.script2_record_line.label }}
+            {{ form.script2_record_line(class="form-control", placeholder="记录线路，没有特殊需求的话，填‘默认’即可" ) }}
+        </div>
+
+        <div class="form-group">
+            {{ form.script2_RecordType.label }}
+            {{ form.script2_RecordType(class="form-control", placeholder="记录类型，填‘SRV’即可" ) }}
+        </div>
+
+        <div class="form-group">
+            {{ form.script2_sleep.label }}
+            {{ form.script2_sleep(class="form-control", placeholder="ddns检测更新的等待间隔，单位秒" ) }}
+        </div>
+
+        <!-- 美化的提交按钮 -->
+        <button type="submit" class="btn btn-primary custom-submit-button">保存</button>
+
+    </form>
+
+
+</div>
+
+</body>
+</html>

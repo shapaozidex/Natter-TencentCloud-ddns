@@ -1,1 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+    
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+    <script>
+        var natterLog = document.getElementById('natter-log-content');
+        var ddnsLog = document.getElementById('ddns-log-content');
+
+        function updateNatterLog(logContent) {
+            natterLog.textContent = logContent;
+        }
+
+        function updateDdnsLog(logContent) {
+            ddnsLog.textContent = logContent;
+        }
+    </script>
+
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f8f9fa;
+        }
+
+        header {
+            background-color: #343a40;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            padding: 15px 0;
+            text-align: center;
+        }
+
+        header h1 {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #ffffff;
+            margin: 0;
+        }
+
+        nav {
+            background-color: #343a40;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            margin-bottom: 15px;
+        }
+
+        nav ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+        }
+
+        nav li {
+            margin: 0 10px;
+        }
+
+        nav a {
+            text-decoration: none;
+            color: #ffffff;
+            font-weight: bold;
+            padding: 8px 16px;
+            border-radius: 4px;
+            transition: background-color 0.3s ease;
+            display: inline-block;
+        }
+
+        nav a:hover {
+            background-color: #007bff;
+        }
+
+
+        /* ... (existing styles) ... */
+        #logs-container {
+            display: flex;
+            justify-content: space-between;
+            margin: 20px;
+        }
+
+        #natter-logs, #ddns-logs {
+            flex: 1;
+            padding: 10px;
+            background-color: #ffffff;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            border-radius: 5px;
+            overflow: auto;
+            max-height: 600px; /* Set a maximum height or adjust as needed */
+        }
+        
+
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Natter-TencentCloud-ddns</h1>
+    </header>
+    <nav>
+        <ul>
+            <li><a href="/natter">natter</a></li>
+            <li><a href="/ddns">ddns</a></li>
+            <li><a href="/GIT">Git ID</a></li>
+            <li><a href="/">刷新日志</a></li>
+        </ul>
+        <ul>
+            <form method="post" action="/start_natter">
+                <li>
+                    <button type="submit" name="natter_button_clicked" value="true" style="font-size: 1.5rem; margin: 10px;">开始-natter</button>
+                </li>
+            </form>
+            <form method="post" action="/start_ddns">
+                <li>
+                    <button type="submit" name="ddns_button_clicked" value="true" style="font-size: 1.5rem; margin: 10px;">开始-ddns</button>
+                </li>
+            </form>
+        </ul>
+    </nav>
+
+
+        <div id="logs-container">
+            <div id="natter-logs">
+                <h2>Natter Logs</h2>
+                <pre id="natter-log-content">{{ natter_log|default('没有可用日志，尝试刷新一下') }}</pre>
+            </div>
+            <div id="ddns-logs">
+                <h2>DDNS Logs</h2>
+                <pre id="ddns-log-content">{{ ddns_log|default('没有可用日志，尝试刷新一下') }}</pre>
+            </div>
+        </div>
+
+    <script>
+        window.onload = function() {};
+    </script>
+
+</body>
+</html>

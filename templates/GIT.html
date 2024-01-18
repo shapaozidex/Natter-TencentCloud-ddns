@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f8f9fa;
+        }
+
+        header {
+            background-color: #343a40;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            padding: 15px 0;
+            text-align: center;
+        }
+
+        header h1 {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #ffffff;
+            margin: 0;
+        }
+
+        nav {
+            background-color: #343a40;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            margin-bottom: 15px;
+        }
+
+        nav ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+        }
+
+        nav li {
+            margin: 0 10px;
+        }
+
+        nav a {
+            text-decoration: none;
+            color: #ffffff;
+            font-weight: bold;
+            padding: 8px 16px;
+            border-radius: 4px;
+            transition: background-color 0.3s ease;
+            display: inline-block;
+        }
+
+        nav a:hover {
+            background-color: #007bff;
+        }
+
+        .container {
+            max-width: 960px;
+            margin: 0 auto;
+        }
+
+
+        .mt-5 {
+            margin-top: 5rem;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-control {
+            display: block;
+            width: 100%;
+            padding: .375rem .75rem;
+            font-size: 1rem;
+            line-height: 1.85;
+            color: #495057;
+            background-color: #fff;
+            background-clip: padding-box;
+            border: 1px solid #ced4da;
+            border-radius: .25rem;
+            transition: border-color .15s ease-in-out,box-shadow .15s ease-in-out;
+        }
+
+        .custom-submit-button {
+            font-size: 1.0rem;
+            padding: 0.70rem 1.0rem;
+            border-radius: 5px; 
+
+        }
+
+        .btn-primary:hover {
+            color: #fff;
+            background-color: #0056b3;
+            border-color: #0056b3;
+        }
+
+        .btn-primary {
+            color: #fff;
+            background-color: #007bff;
+            border-color: #007bff;
+        }
+
+
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Natter-TencentCloud-ddns</h1>
+    </header>
+    <nav>
+        <ul>
+            <li><a href="/natter">natter</a></li>
+            <li><a href="/ddns">ddns</a></li>
+            <li><a href="/GIT">Git ID</a></li>
+            <li><a href="/">主页</a></li>
+        </ul>
+    </nav>
+
+
+<div class="container mt-5">
+
+        <header>
+            <h1>填写域名相关的信息</h1>
+        </header>
+    
+    <h1>腾讯 API</h1>
+    
+    <form method="post">
+            {{ form.hidden_tag() }}
+            <a href="https://console.dnspod.cn/account/token/apikey" target="_blank">点我获取API 密钥</a>
+    
+            <!-- 表单字段 -->
+            <div class="form-group">
+                {{ form.tencent_api_secret_id.label }}
+                {{ form.tencent_api_secret_id(class="form-control", placeholder="腾讯云 API SecretId" ) }}
+            </div>
+    
+            <div class="form-group">
+                {{ form.tencent_api_secret_key.label }}
+                {{ form.tencent_api_secret_key(class="form-control", placeholder="腾讯云 API SecretKey" ) }}
+            </div>
+    
+            <div class="form-group">
+                {{ form.tencent_api_endpoint.label }}
+                {{ form.tencent_api_endpoint(class="form-control") }}
+            </div>
+         <h1>读取 ID</h1>
+            <div class="form-group">
+                {{ form.script0_domain.label }}
+                {{ form.script0_domain(class="form-control", placeholder="填你想要读取Record-ID的域名") }}
+            </div>
+
+
+
+
+        <button type="submit" class="btn btn-primary custom-submit-button">保存</button>
+        <button type="submit" name="git_id_button_clicked" value="true" class="btn btn-primary custom-submit-button">GIT ID</button>
+
+    </form>
+
+
+</div>
+
+</body>
+</html>

@@ -73,6 +73,7 @@ pip install Flask
 
 
 9.全部弄完之后,点击右边的 主页 然后点击 开始natter 和 开始ddns
+要等natter把端口号都打印完了再点ddns（手动刷新日志）
 即可开始工作(记得检测域名解析有没有生效)
 ![](.img/img06.png)
 

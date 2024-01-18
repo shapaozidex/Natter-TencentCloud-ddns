@@ -39,8 +39,7 @@
 分别是两个库的安装命令分别是：
 
 
-pip install --upgrade tencentcloud-sdk-python
-pip install Flask
+pip install --upgrade tencentcloud-sdk-python                  pip install Flask
 
 
 

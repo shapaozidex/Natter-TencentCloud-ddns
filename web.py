@@ -7,13 +7,16 @@ import os
 import sys
 import subprocess
 import threading
-import time
+
 
 # 定义变量
-custom_host = ''   #默认只挂载到  '127.0.0.1'  想要在公网访问就自己把custom_host改成 '0.0.0.0' 
+custom_host = ''  #默认只挂载到  '127.0.0.1'  想要在公网访问就自己把custom_host改成 '0.0.0.0' 
                    #但是这是不被允许的，web界面没有密码所以,所有人都能访问到
                    #不要问为什么不写,问就是不会
                    #没有特殊需求不要改这个东西   
+
+# 默认启动端口
+default_port = 9876    #你可以直接修改这里，也可以使用启动参数来变更端口
 
     
 
@@ -165,7 +168,7 @@ class ConfigForm(FlaskForm):
     script2_priority = StringField('Priority')
     script2_sleep = IntegerField('检测间隔')
 
-    submit = SubmitField('保存')
+
 
 
     PORT1_record_id = IntegerField('Record-ID（选填）')
@@ -557,6 +560,10 @@ def GIT():
             # 执行 Get ID.py
             execute_get_id_script()
 
+            # 跳回去
+            return render_template('GIT.html', form=form)
+        
+
         # 将表单数据写入配置文件（config.json）
         ID_data = {
             "tencent_api": {
@@ -576,16 +583,12 @@ def GIT():
 
     #不要问为什么上面已经写了一个'加密',这里还要写一个
     #当然，如果你确定这四行是多余的，那你可以改成
-    # form.tencent_api_secret_id.data = ID_data.get("tencent_api", {}).get("secret_id", "")
-    # form.tencent_api_secret_key.data = ID_data.get("tencent_api", {}).get("secret_key", "")
+    form.tencent_api_secret_id.data = ID_data.get("tencent_api", {}).get("secret_id", "")
+    form.tencent_api_secret_key.data = ID_data.get("tencent_api", {}).get("secret_key", "")
     
 
 
-    secret_id = ID_data.get("tencent_api", {}).get("secret_id", "")
-    form.tencent_api_secret_id.data = secret_id[:4] + '*' * (len(secret_id) - 8) + secret_id[-4:]  # 获取前四位和后四位
-
-    secret_key = ID_data.get("tencent_api", {}).get("secret_key", "") 
-    form.tencent_api_secret_key.data = secret_key[:4] + '*' * (len(secret_key) - 8) + secret_key[-4:]  # 获取前四位和后四位 
+ 
 
 
 
@@ -604,6 +607,9 @@ def execute_get_id_script():
         subprocess.run(['python', 'py/Get ID.py'])
     except Exception as e:
         app.logger.error(f"{e}")
+
+
+
 
 
 
@@ -686,8 +692,7 @@ if __name__ == '__main__':
 
 
 
-    # 默认端口
-    default_port = 9876
+
 
     # 从启动参数中尝试读取端口
     if len(sys.argv) > 1:

@@ -45,11 +45,7 @@ pip install --upgrade tencentcloud-sdk-python
 pip install flask
 ****
 pip install flask-wtf
-****
-pip install threading
-****
-pip install subprocess
-****
+
 
 
 5.运行web.py之后,在本机浏览器输入127.0.0.1:9876(或者你自己输入的端口号)
@@ -95,10 +91,6 @@ pip install subprocess
 flask    【用于创建 Web 应用程序的微框架】
 ****
 flask_wtf    【Flask 的表单扩展，用于处理 Web 表单】
-****
-subprocess    【用于创建和管理子进程的模块】
-****
-threading    【用于多线程编程的模块，提供了在 Python 中创建和管理线程的功能】
 ****
 tencentcloud-sdk-python    【腾讯的sdk】
 

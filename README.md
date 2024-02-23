@@ -37,7 +37,7 @@
 
 
 4.运行web.py文件,你可以在执行的时候加一个参数作为启动端口号（设备要先安装python2.7及以上，还要安装两个 第三方库 ）
-分别是两个库的安装命令分别是：
+这三个库的安装命令分别是：
 
 
 pip install --upgrade tencentcloud-sdk-python               

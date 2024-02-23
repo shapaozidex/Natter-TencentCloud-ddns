@@ -46,8 +46,6 @@ pip install flask
 ****
 pip install flask-wtf
 ****
-pip install wtforms
-****
 pip install threading
 ****
 pip install subprocess
@@ -97,8 +95,6 @@ pip install subprocess
 flask    【用于创建 Web 应用程序的微框架】
 ****
 flask_wtf    【Flask 的表单扩展，用于处理 Web 表单】
-****
-wtforms    【用于创建 Web 表单的库】
 ****
 subprocess    【用于创建和管理子进程的模块】
 ****

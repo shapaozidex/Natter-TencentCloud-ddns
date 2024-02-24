@@ -37,16 +37,15 @@ import subprocess
 
 
 
-
 #定义全局变量
-global_port = None
+main_port = None
 
 
 
 
-__version__ = "2.0.0-rc1"
 
 
+__version__ = "2.0.0-rc2"
 
 
 class Logger(object):
@@ -56,7 +55,20 @@ class Logger(object):
     ERROR = 3
     rep = {DEBUG: "D", INFO: "I", WARN: "W", ERROR: "E"}
     level = INFO
-    enable_debug_output = False  #添加此变量以控制调试输出
+
+
+
+
+
+
+
+
+
+
+
+
+
+    enable_debug_output = True  #添加此变量以控制调试输出
 
 
     # 创建 log 目录
@@ -65,6 +77,17 @@ class Logger(object):
         os.makedirs(log_directory)
         
     log_file_path = 'log/natter.log'  # 指定日志文件的路径
+
+        
+
+
+
+
+
+
+
+
+
 
 
 
@@ -119,6 +142,10 @@ class Logger(object):
 
 
 
+
+
+
+
 class NatterExit(object):
     atexit.register(lambda : NatterExit._atexit[0]())
     _atexit = [lambda : None]
@@ -128,19 +155,26 @@ class NatterExit(object):
         NatterExit._atexit[0] = func
 
 
-
 class PortTest(object):
-    def test_lan(self, addr, info=False):
+    def test_lan(self, addr, source_ip = None, interface=None, info=False):
         print_status = Logger.info if info else Logger.debug
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(1)
         try:
+            if interface is not None:
+                if hasattr(socket, "SO_BINDTODEVICE"):
+                    sock.setsockopt(
+                        socket.SOL_SOCKET, socket.SO_BINDTODEVICE, interface.encode() + b"\0"
+                    )
+                else:
+                    Logger.warning("port-test: Ignoring unsupported SO_BINDTODEVICE.")
+            if source_ip:
+                sock.bind((source_ip, 0))
             if sock.connect_ex(addr) == 0:
                 print_status("LAN > %-21s [ OPEN ]" % addr_to_str(addr))
                 return 1
             else:
                 print_status("LAN > %-21s [ CLOSED ]" % addr_to_str(addr))
-
                 return -1
         except (OSError, socket.error) as ex:
             print_status("LAN > %-21s [ UNKNOWN ]" % addr_to_str(addr))
@@ -149,88 +183,40 @@ class PortTest(object):
         finally:
             sock.close()
 
-
-
-
-
-    def test_wan(self, addr, source_ip=None, info=False):
+    def test_wan(self, addr, source_ip = None, interface=None, info=False):
         # only port number in addr is used, WAN IP will be ignored
         print_status = Logger.info if info else Logger.debug
-
-        # Test using ifconfig.co
-        ret01 = self._test_ifconfigco(addr[1], source_ip)
+        ret01 = self._test_ifconfigco(addr[1], source_ip, interface)
         if ret01 == 1:
             print_status("WAN > %-21s [ OPEN ]" % addr_to_str(addr))
-            self._save_to_open_json(addr)
             return 1
-
-        # Test using transmission
-        ret02 = self._test_transmission(addr[1], source_ip)
+        ret02 = self._test_transmission(addr[1], source_ip, interface)
         if ret02 == 1:
             print_status("WAN > %-21s [ OPEN ]" % addr_to_str(addr))
-            self._save_to_open_json(addr)
             return 1
-
-        # Check if both tests returned -1 (closed)
         if ret01 == ret02 == -1:
             print_status("WAN > %-21s [ CLOSED ]" % addr_to_str(addr))
             return -1
-
-        # If none of the conditions matched, print UNKNOWN
         print_status("WAN > %-21s [ UNKNOWN ]" % addr_to_str(addr))
         return 0
-
-    def _save_to_open_json(self, addr):
-        open_file_path = 'log/OPEN.json'
-        
-        open_data = {
-        "ip": addr[0],
-        "port": addr[1],
-        "LANport": global_port
-        }
-
-        # 从文件中读取数据
-        existing_data = []
-        if os.path.exists(open_file_path):
-            with open(open_file_path, 'r', encoding='utf-8') as file:
-                for line in file:
-                    existing_data.append(json.loads(line))
-
-        # 检查文件中是否存在对应的 LANport
-        found = False
-        for i, data in enumerate(existing_data):
-            if data["LANport"] == global_port:
-                # 替换原本的PROT
-                existing_data[i] = open_data
-                found = True
-                break
-
-        # 对应的 LANport 不存在，写入新的 
-        if not found:
-            existing_data.append(open_data)
-
-        # 将更新后的数据写回文件
-        with open(open_file_path, 'w', encoding='utf-8') as open_file:
-            for data in existing_data:
-                open_file.write(json.dumps(data) + '\n')
+    
 
 
 
 
 
-
-
-
-
-
-
-
-
-    def _test_ifconfigco(self, port, source_ip = None):
+    def _test_ifconfigco(self, port, source_ip = None, interface=None):
         # repo: https://github.com/mpolden/echoip
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(8)
         try:
+            if interface is not None:
+                if hasattr(socket, "SO_BINDTODEVICE"):
+                    sock.setsockopt(
+                        socket.SOL_SOCKET, socket.SO_BINDTODEVICE, interface.encode() + b"\0"
+                    )
+                else:
+                    Logger.warning("port-test: Ignoring unsupported SO_BINDTODEVICE.")
             if source_ip:
                 sock.bind((source_ip, 0))
             sock.connect(("ifconfig.co", 80))
@@ -250,7 +236,7 @@ class PortTest(object):
                 response += buff
             Logger.debug("port-test: ifconfig.co: %s" % response)
             _, content = response.split(b"\r\n\r\n", 1)
-            dat = json.loads(content)
+            dat = json.loads(content.decode())
             return 1 if dat["reachable"] else -1
         except (OSError, LookupError, ValueError, TypeError, socket.error) as ex:
             Logger.debug("Cannot test port %d from ifconfig.co because: %s" % (port, ex))
@@ -258,11 +244,18 @@ class PortTest(object):
         finally:
             sock.close()
 
-    def _test_transmission(self, port, source_ip = None):
+    def _test_transmission(self, port, source_ip = None, interface=None):
         # repo: https://github.com/transmission/portcheck
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
             sock.settimeout(8)
+            if interface is not None:
+                if hasattr(socket, "SO_BINDTODEVICE"):
+                    sock.setsockopt(
+                        socket.SOL_SOCKET, socket.SO_BINDTODEVICE, interface.encode() + b"\0"
+                    )
+                else:
+                    Logger.warning("port-test: Ignoring unsupported SO_BINDTODEVICE.")
             if source_ip:
                 sock.bind((source_ip, 0))
             sock.connect(("portcheck.transmissionbt.com", 80))
@@ -322,11 +315,16 @@ class StunClient(object):
                 ))
                 self.stun_server_list.append(self.stun_server_list.pop(0))
                 if self.stun_server_list[0] == first:
-                    Logger.error("stun: No STUN server is avaliable right now")
+                    Logger.error("stun: No STUN server is available right now")
                     # force sleep for 10 seconds, then try the next loop
                     time.sleep(10)
 
     def _get_mapping(self):
+
+
+        
+        
+
         # ref: https://www.rfc-editor.org/rfc/rfc5389
         socket_type = socket.SOCK_DGRAM if self.udp else socket.SOCK_STREAM
         stun_host, stun_port = self.stun_server_list[0]
@@ -370,6 +368,62 @@ class StunClient(object):
                 addr_to_uri((stun_host, stun_port), udp=self.udp),
                 addr_to_uri(inner_addr, udp=self.udp)
             ))
+
+
+
+
+
+
+
+
+            # 打印公网地址和端口
+            outer_ip, outer_port = outer_addr
+            protocol = "udp" if self.udp else "tcp"
+            print("公网地址 {}://{}:{}".format(protocol, outer_ip, outer_port))
+            
+             # 将获取到的外部 IP 和端口分别赋值给全局变量
+
+
+            open_file_path = 'log/OPEN.json'
+        
+            open_data = {
+            "ip": outer_ip,
+            "port": outer_port,
+            "LANport": main_port
+           }
+
+            # 从文件中读取数据
+            existing_data = []
+            if os.path.exists(open_file_path):
+                with open(open_file_path, 'r', encoding='utf-8') as file:
+                    for line in file:
+                        existing_data.append(json.loads(line))
+
+            # 检查文件中是否存在对应的 LANport
+            found = False
+            for i, data in enumerate(existing_data):
+                if data["LANport"] == main_port:
+                    # 替换原本的PROT
+                    existing_data[i] = open_data
+                    found = True
+                    break
+
+            # 对应的 LANport 不存在，写入新的 
+            if not found:
+                existing_data.append(open_data)
+
+            # 将更新后的数据写回文件
+            with open(open_file_path, 'w', encoding='utf-8') as open_file:
+                for data in existing_data:
+                    open_file.write(json.dumps(data) + '\n')
+
+
+
+
+
+
+
+
             return inner_addr, outer_addr
         except (OSError, ValueError, struct.error, socket.error) as ex:
             raise StunClient.ServerUnavailable(ex)
@@ -377,13 +431,38 @@ class StunClient(object):
             sock.close()
 
 
+
+
+
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 class KeepAlive(object):
-    def __init__(self, host, port, source_host, source_port, udp=False):
+    def __init__(self, host, port, source_host, source_port, interface=None, udp=False):
         self.sock = None
         self.host = host
         self.port = port
         self.source_host = source_host
         self.source_port = source_port
+        self.interface = interface
         self.udp = udp
         self.reconn = False
 
@@ -394,6 +473,13 @@ class KeepAlive(object):
     def _connect(self):
         sock_type = socket.SOCK_DGRAM if self.udp else socket.SOCK_STREAM
         sock = new_socket_reuse(socket.AF_INET, sock_type)
+        if self.interface is not None:
+            if hasattr(socket, "SO_BINDTODEVICE"):
+                sock.setsockopt(
+                    socket.SOL_SOCKET, socket.SO_BINDTODEVICE, self.interface.encode() + b"\0"
+                )
+            else:
+                Logger.warning("keep-alive: Ignoring unsupported SO_BINDTODEVICE.")
         sock.bind((self.source_host, self.source_port))
         sock.settimeout(3)
         sock.connect((self.host, self.port))
@@ -457,6 +543,9 @@ class KeepAlive(object):
         except socket.timeout as ex:
             if not buff:
                 raise ex
+            # temp fix: Keep-alive cause STUN socket timeout on Windows
+            if sys.platform == "win32":
+                self.reset()
             return
 
 
@@ -485,9 +574,12 @@ class ForwardTestServer(object):
         self.sock.bind(('', port))
         Logger.debug("fwd-test: Starting test server at %s" % addr_to_uri((ip, port), udp=udp))
         if udp:
-            start_daemon_thread(self._test_server_run_udp)
+            th = start_daemon_thread(self._test_server_run_udp)
         else:
-            start_daemon_thread(self._test_server_run_http)
+            th = start_daemon_thread(self._test_server_run_http)
+        time.sleep(1)
+        if not th.is_alive():
+            raise OSError("Test server thread exited too quickly")
         self.active = True
 
     def _test_server_run_http(self):
@@ -501,16 +593,18 @@ class ForwardTestServer(object):
             try:
                 conn.settimeout(self.timeout)
                 conn.recv(self.buff_size)
-                content = b"<html><body><h1>It works!</h1><hr/>Natter</body></html>"
-                conn.sendall(
-                    b"HTTP/1.1 200 OK\r\n"
-                    b"Content-Type: text/html\r\n"
-                    b"Content-Length: %d\r\n"
-                    b"Connection: close\r\n"
-                    b"Server: Natter\r\n"
-                    b"\r\n"
-                    b"%s\r\n" % (len(content), content)
-                )
+                content = "<html><body><h1>It works!</h1><hr/>Natter</body></html>"
+                content_len = len(content.encode())
+                data = (
+                    "HTTP/1.1 200 OK\r\n"
+                    "Content-Type: text/html\r\n"
+                    "Content-Length: %d\r\n"
+                    "Connection: close\r\n"
+                    "Server: Natter\r\n"
+                    "\r\n"
+                    "%s\r\n" % (content_len, content)
+                ).encode()
+                conn.sendall(data)
                 conn.shutdown(socket.SHUT_RDWR)
             except (OSError, socket.error):
                 pass
@@ -878,7 +972,7 @@ class ForwardGost(object):
             ).decode()
         except (OSError, subprocess.CalledProcessError) as e:
             return False
-        m = re.search(r"gost ([0-9]+)\.([0-9]+)", output)
+        m = re.search(r"gost v?([0-9]+)\.([0-9]+)", output)
         if m:
             current_ver = tuple(int(v) for v in m.groups())
             Logger.debug("fwd-gost: Found gost %s" % str(current_ver))
@@ -990,9 +1084,12 @@ class ForwardSocket(object):
             addr_to_uri((ip, port), udp=udp), addr_to_uri((toip, toport), udp=udp)
         ))
         if udp:
-            start_daemon_thread(self._socket_udp_recvfrom)
+            th = start_daemon_thread(self._socket_udp_recvfrom)
         else:
-            start_daemon_thread(self._socket_tcp_listen)
+            th = start_daemon_thread(self._socket_tcp_listen)
+        time.sleep(1)
+        if not th.is_alive():
+            raise OSError("Socket thread exited too quickly")
         self.active = True
 
     def _socket_tcp_listen(self):
@@ -1050,7 +1147,7 @@ class ForwardSocket(object):
                 if not s:
                     s = outbound_socks[addr] = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
                     s.settimeout(self.udp_timeout)
-                    s.connect((self.outbound_addr))
+                    s.connect(self.outbound_addr)
                     if threading.active_count() >= self.max_threads:
                         raise OSError("Too many threads")
                     start_daemon_thread(self._socket_udp_send, args=(self.sock, s, addr))
@@ -1093,8 +1190,8 @@ class NatterRetryException(Exception):
     pass
 
 
-def new_socket_reuse(family, type):
-    sock = socket.socket(family, type)
+def new_socket_reuse(family, socket_type):
+    sock = socket.socket(family, socket_type)
     if hasattr(socket, "SO_REUSEADDR"):
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     if hasattr(socket, "SO_REUSEPORT"):
@@ -1106,14 +1203,21 @@ def start_daemon_thread(target, args=()):
     th = threading.Thread(target=target, args=args)
     th.daemon = True
     th.start()
+    return th
 
 
 def closed_socket_ex(ex):
     if not hasattr(ex, "errno"):
         return False
-    if hasattr(errno, "ECONNABORTED") and ex.errno != errno.ECONNABORTED:
+    if hasattr(errno, "ECONNABORTED") and ex.errno == errno.ECONNABORTED:
         return True
-    if hasattr(errno, "EBADFD") and ex.errno != errno.EBADFD:
+    if hasattr(errno, "EBADFD") and ex.errno == errno.EBADFD:
+        return True
+    if hasattr(errno, "EBADF") and ex.errno == errno.EBADF:
+        return True
+    if hasattr(errno, "WSAEBADF") and ex.errno == errno.WSAEBADF:
+        return True
+    if hasattr(errno, "WSAEINTR") and ex.errno == errno.WSAEINTR:
         return True
     return False
 
@@ -1214,13 +1318,19 @@ def ip_normalize(ipaddr):
     return socket.inet_ntoa(socket.inet_aton(ipaddr))
 
 
-
-
-
 def natter_main(show_title = True):
 
 
-    global global_port
+
+
+
+    global main_port
+
+
+
+
+
+
 
 
 
@@ -1312,14 +1422,17 @@ def natter_main(show_title = True):
 
 
 
-
-
-# 存储到全局变量中
+    # 存储到全局变量中
     if to_port != 0:
-        global_port = to_port
+        main_port = to_port
  
     if bind_port != 0:
-        global_port = bind_port
+        main_port = bind_port
+
+
+
+
+
 
 
 
@@ -1445,7 +1558,7 @@ def natter_main(show_title = True):
     # set actual ip and port for keep-alive socket to bind, instead of zero
     bind_ip, bind_port = natter_addr
 
-    keep_alive = KeepAlive(keepalive_host, keepalive_port, bind_ip, bind_port, udp=udp_mode)
+    keep_alive = KeepAlive(keepalive_host, keepalive_port, bind_ip, bind_port, udp=udp_mode, interface=bind_interface)
     keep_alive.keep_alive()
 
     # get the mapped address again after the keep-alive connection is established
@@ -1471,7 +1584,7 @@ def natter_main(show_title = True):
     forwarder.start_forward(natter_addr[0], natter_addr[1], to_addr[0], to_addr[1], udp=udp_mode)
     NatterExit.set_atexit(forwarder.stop_forward)
 
-    # Display route infomation
+    # Display route information
     Logger.info()
     route_str = ""
     if ForwardImpl not in (ForwardNone, ForwardTestServer):
@@ -1502,8 +1615,8 @@ def natter_main(show_title = True):
     if not udp_mode:
         ret1 = port_test.test_lan(to_addr, info=True)
         ret2 = port_test.test_lan(natter_addr, info=True)
-        ret3 = port_test.test_lan(outer_addr, info=True)
-        ret4 = port_test.test_wan(outer_addr, source_ip=natter_addr[0], info=True)
+        ret3 = port_test.test_lan(outer_addr, source_ip=natter_addr[0], interface=bind_interface, info=True)
+        ret4 = port_test.test_wan(outer_addr, source_ip=natter_addr[0], interface=bind_interface, info=True)
         if ret1 == -1:
             Logger.warning("!! Target port is closed !!")
         elif ret1 == 1 and ret3 == ret4 == -1:
@@ -1531,7 +1644,7 @@ def natter_main(show_title = True):
             Logger.debug("Start recheck")
             need_recheck = False
             # check LAN port first
-            if udp_mode or port_test.test_lan(outer_addr) == -1:
+            if udp_mode or port_test.test_lan(outer_addr, source_ip=natter_addr[0], interface=bind_interface) == -1:
                 # then check through STUN
                 _, outer_addr_curr = stun.get_mapping()
                 if outer_addr_curr != outer_addr:
@@ -1567,7 +1680,7 @@ def main():
         except NatterRetryException:
             pass
         except (NatterExitException, KeyboardInterrupt):
-            exit()
+            sys.exit()
         show_title = False
 
 

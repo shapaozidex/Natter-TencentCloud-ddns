@@ -1,19 +1,28 @@
 from flask import Flask, render_template, request
 from flask_wtf import FlaskForm
-from wtforms import StringField, SubmitField, IntegerField
-from flask_bootstrap import Bootstrap
+from wtforms import StringField, IntegerField
 import json
 import os
 import sys
 import subprocess
 import threading
+import socket
 
 
-# 定义变量
-custom_host = ''  #默认只挂载到  '127.0.0.1'  想要在公网访问就自己把custom_host改成 '0.0.0.0' 
-                   #但是这是不被允许的，web界面没有密码所以,所有人都能访问到
-                   #不要问为什么不写,问就是不会
-                   #没有特殊需求不要改这个东西   
+# 获取本地主机名
+host_name = socket.gethostname()
+        
+        # 获取本地IP地址 ，没有获取到就改成127.0.0.1
+custom_host = socket.gethostbyname(host_name) if socket.gethostbyname(host_name) else "127.0.0.1"
+
+#如果不想挂载到局域网，那就用这个
+# custom_host = "127.0.0.1"
+
+
+#默认只挂载到本机内网地址，  想要在公网访问就自己把custom_host改成 '0.0.0.0' 
+#但是这是不被允许的，web界面没有密码所以,所有人都能访问到
+#不要问为什么不写,问就是不会
+#没有特殊需求不要改这个东西   
 
 # 默认启动端口
 default_port = 9876    #你可以直接修改这里，也可以使用启动参数来变更端口
@@ -23,7 +32,7 @@ default_port = 9876    #你可以直接修改这里，也可以使用启动参�
 
 Startup_parameters = '-p'   #natter的启动参数（需要其它参数请自行修改）。具体改法自己根据下面的对照表来
 
-#不要问为什么不直接在web中提供更改，问就是太麻烦，要考虑的东西太多，并且不能直接一个模板全部套用。
+#不要问为什么不直接在web中提供更改，问就是太麻烦，要考虑的东西太多，并且不能直接一个模板全部套用(绝对不是连我都看不懂这些启动参数的用法，绝对不是  (๑òωó๑)
 
 #如果你需要更改这个参数，那你可能需要连着natter.py一起更改，以确保natter.能够正常输出日志到log文件夹，否则srv无法正常工作
 
@@ -65,7 +74,7 @@ Startup_parameters = '-p'   #natter的启动参数（需要其它参数请自行
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your_secret_key'
-Bootstrap(app)
+
 
 
 # 创建 config 目录
@@ -434,7 +443,7 @@ def natter_py():
                 Network_protocols = config_data[port_key]['PORT_protocols']
 
 
-                # 多线程
+                # 多线程  (给自己写个提醒，在端口少的时候可以这样写，但是端口多的时候这样写，可能会爆掉，一个端口一个线程)
                 thread = threading.Thread(target=execute_natter, args=(port_key, port_number, Network_protocols))
                 thread.start()
                 
@@ -563,8 +572,15 @@ def GIT():
             # 跳回去
             return render_template('GIT.html', form=form)
         
+            # 检查 secret_id 是否包含多个星号
+        if '********' in form.tencent_api_secret_id.data:
+            # 跳回去
+            return render_template('GIT.html', form=form)
+        
 
-        # 将表单数据写入配置文件（config.json）
+        
+
+        # 将表单数据写入配置文件（ID.json）
         ID_data = {
             "tencent_api": {
                 "secret_id": form.tencent_api_secret_id.data,
@@ -581,17 +597,10 @@ def GIT():
 
 
 
-    #不要问为什么上面已经写了一个'加密',这里还要写一个
-    #当然，如果你确定这四行是多余的，那你可以改成
+
     form.tencent_api_secret_id.data = ID_data.get("tencent_api", {}).get("secret_id", "")
     form.tencent_api_secret_key.data = ID_data.get("tencent_api", {}).get("secret_key", "")
     
-
-
- 
-
-
-
     form.tencent_api_endpoint.data = "dnspod.tencentcloudapi.com"
 
     form.script0_domain.data = ID_data.get("script0", {}).get("domain", "")

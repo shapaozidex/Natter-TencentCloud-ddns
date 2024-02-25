@@ -45,8 +45,7 @@ pip install --upgrade tencentcloud-sdk-python
 pip install flask
 ****
 pip install flask-wtf
-****
-pip install requests
+
 
 
 

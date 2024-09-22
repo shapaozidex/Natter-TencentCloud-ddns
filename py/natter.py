@@ -24,7 +24,6 @@ import sys
 import json
 import time
 import errno
-import shlex
 import atexit
 import codecs
 import random
@@ -37,6 +36,9 @@ import subprocess
 
 
 
+
+
+
 #定义全局变量
 main_port = None
 
@@ -45,52 +47,42 @@ main_port = None
 
 
 
-__version__ = "2.0.0-rc2"
+
+
+
+
+
+
+
+__version__ = "2.1.1"
+
+
+
+
+
+
 
 
 class Logger(object):
     DEBUG = 0
-    INFO  = 1
-    WARN  = 2
+    INFO = 1
+    WARN = 2
     ERROR = 3
     rep = {DEBUG: "D", INFO: "I", WARN: "W", ERROR: "E"}
     level = INFO
 
-
-
-
-
-
-
-
-
-
-
-
-
-    enable_debug_output = True  #添加此变量以控制调试输出
-
+    # 控制是否启用调试输出
+    enable_debug_output = True
 
     # 创建 log 目录
     log_directory = 'log'
     if not os.path.exists(log_directory):
         os.makedirs(log_directory)
-        
-    log_file_path = 'log/natter.log'  # 指定日志文件的路径
 
-        
+    # 指定日志文件的路径
+    log_file_path = os.path.join(log_directory, 'natter.log')
 
-
-
-
-
-
-
-
-
-
-
-
+    # 控制台输出的颜色
     if "256color" in os.environ.get("TERM", ""):
         GREY = "\033[90;20m"
         YELLOW_BOLD = "\033[33;1m"
@@ -101,38 +93,53 @@ class Logger(object):
 
     @staticmethod
     def set_level(level):
+        """设置日志级别"""
         Logger.level = level
 
     @staticmethod
     def debug(text=""):
-        if Logger.level <= Logger.DEBUG and Logger.enable_debug_output:
-            Logger._write_log(Logger.rep[Logger.DEBUG], text)
+        """输出 DEBUG 级别的日志"""
+        if Logger.enable_debug_output and Logger.level <= Logger.DEBUG:
+            Logger._write_log(Logger.rep[Logger.DEBUG], text, Logger.GREY)
 
     @staticmethod
     def info(text=""):
+        """输出 INFO 级别的日志"""
         if Logger.level <= Logger.INFO:
             Logger._write_log(Logger.rep[Logger.INFO], text)
 
     @staticmethod
     def warning(text=""):
+        """输出 WARN 级别的日志"""
         if Logger.level <= Logger.WARN:
-            Logger._write_log(Logger.rep[Logger.WARN], text)
+            Logger._write_log(Logger.rep[Logger.WARN], text, Logger.YELLOW_BOLD)
 
     @staticmethod
     def error(text=""):
+        """输出 ERROR 级别的日志"""
         if Logger.level <= Logger.ERROR:
-            Logger._write_log(Logger.rep[Logger.ERROR], text)
+            Logger._write_log(Logger.rep[Logger.ERROR], text, Logger.RED_BOLD)
 
     @staticmethod
-    def _write_log(log_level, text):
+    def _write_log(log_level, text, color=""):
+        """核心日志写入函数，支持输出到控制台和文件"""
         log_message = f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{log_level}] {text}\n"
 
-    #写入文件
+        # 写入日志文件
         with open(Logger.log_file_path, 'a', encoding='utf-8') as log_file:
             log_file.write(log_message)
 
-    #输出到控制台
-        sys.stderr.write(log_message)
+        # 输出到控制台，带颜色
+        sys.stderr.write(f"{color}{log_message}{Logger.RESET}")
+
+
+
+
+
+
+
+
+
 
 
 
@@ -156,20 +163,16 @@ class NatterExit(object):
 
 
 class PortTest(object):
-    def test_lan(self, addr, source_ip = None, interface=None, info=False):
+    def test_lan(self, addr, source_ip=None, interface=None, info=False):
         print_status = Logger.info if info else Logger.debug
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.settimeout(1)
         try:
-            if interface is not None:
-                if hasattr(socket, "SO_BINDTODEVICE"):
-                    sock.setsockopt(
-                        socket.SOL_SOCKET, socket.SO_BINDTODEVICE, interface.encode() + b"\0"
-                    )
-                else:
-                    Logger.warning("port-test: Ignoring unsupported SO_BINDTODEVICE.")
-            if source_ip:
-                sock.bind((source_ip, 0))
+            socket_set_opt(
+                sock,
+                bind_addr   = (source_ip, 0) if source_ip else None,
+                interface   = interface,
+                timeout     = 1
+            )
             if sock.connect_ex(addr) == 0:
                 print_status("LAN > %-21s [ OPEN ]" % addr_to_str(addr))
                 return 1
@@ -183,7 +186,7 @@ class PortTest(object):
         finally:
             sock.close()
 
-    def test_wan(self, addr, source_ip = None, interface=None, info=False):
+    def test_wan(self, addr, source_ip=None, interface=None, info=False):
         # only port number in addr is used, WAN IP will be ignored
         print_status = Logger.info if info else Logger.debug
         ret01 = self._test_ifconfigco(addr[1], source_ip, interface)
@@ -199,26 +202,17 @@ class PortTest(object):
             return -1
         print_status("WAN > %-21s [ UNKNOWN ]" % addr_to_str(addr))
         return 0
-    
 
-
-
-
-
-    def _test_ifconfigco(self, port, source_ip = None, interface=None):
+    def _test_ifconfigco(self, port, source_ip=None, interface=None):
         # repo: https://github.com/mpolden/echoip
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.settimeout(8)
         try:
-            if interface is not None:
-                if hasattr(socket, "SO_BINDTODEVICE"):
-                    sock.setsockopt(
-                        socket.SOL_SOCKET, socket.SO_BINDTODEVICE, interface.encode() + b"\0"
-                    )
-                else:
-                    Logger.warning("port-test: Ignoring unsupported SO_BINDTODEVICE.")
-            if source_ip:
-                sock.bind((source_ip, 0))
+            socket_set_opt(
+                sock,
+                bind_addr   = (source_ip, 0) if source_ip else None,
+                interface   = interface,
+                timeout     = 8
+            )
             sock.connect(("ifconfig.co", 80))
             sock.sendall((
                 "GET /port/%d HTTP/1.0\r\n"
@@ -244,20 +238,16 @@ class PortTest(object):
         finally:
             sock.close()
 
-    def _test_transmission(self, port, source_ip = None, interface=None):
+    def _test_transmission(self, port, source_ip=None, interface=None):
         # repo: https://github.com/transmission/portcheck
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
-            sock.settimeout(8)
-            if interface is not None:
-                if hasattr(socket, "SO_BINDTODEVICE"):
-                    sock.setsockopt(
-                        socket.SOL_SOCKET, socket.SO_BINDTODEVICE, interface.encode() + b"\0"
-                    )
-                else:
-                    Logger.warning("port-test: Ignoring unsupported SO_BINDTODEVICE.")
-            if source_ip:
-                sock.bind((source_ip, 0))
+            socket_set_opt(
+                sock,
+                bind_addr   = (source_ip, 0) if source_ip else None,
+                interface   = interface,
+                timeout     = 8
+            )
             sock.connect(("portcheck.transmissionbt.com", 80))
             sock.sendall((
                 "GET /%d HTTP/1.0\r\n"
@@ -320,26 +310,17 @@ class StunClient(object):
                     time.sleep(10)
 
     def _get_mapping(self):
-
-
-        
-        
-
         # ref: https://www.rfc-editor.org/rfc/rfc5389
         socket_type = socket.SOCK_DGRAM if self.udp else socket.SOCK_STREAM
         stun_host, stun_port = self.stun_server_list[0]
-        sock = new_socket_reuse(socket.AF_INET, socket_type)
-        sock.settimeout(3)
-        if self.interface is not None:
-            if not hasattr(socket, "SO_BINDTODEVICE"):
-                raise RuntimeError(
-                    "Binding to an interface is not supported by current version of "
-                    "Python or operating system"
-                )
-            sock.setsockopt(
-                socket.SOL_SOCKET, socket.SO_BINDTODEVICE, self.interface.encode() + b"\0"
-            )
-        sock.bind((self.source_host, self.source_port))
+        sock = socket.socket(socket.AF_INET, socket_type)
+        socket_set_opt(
+            sock,
+            reuse       = True,
+            bind_addr   = (self.source_host, self.source_port),
+            interface   = self.interface,
+            timeout     = 3
+        )
         try:
             sock.connect((stun_host, stun_port))
             inner_addr = sock.getsockname()
@@ -376,7 +357,17 @@ class StunClient(object):
 
 
 
-            # 打印公网地址和端口
+
+
+
+
+
+
+
+
+
+
+                        # 打印公网地址和端口
             outer_ip, outer_port = outer_addr
             protocol = "udp" if self.udp else "tcp"
             print("公网地址 {}://{}:{}".format(protocol, outer_ip, outer_port))
@@ -424,35 +415,21 @@ class StunClient(object):
 
 
 
+
+
+
+
+
+
+
+
+
+
             return inner_addr, outer_addr
         except (OSError, ValueError, struct.error, socket.error) as ex:
             raise StunClient.ServerUnavailable(ex)
         finally:
             sock.close()
-
-
-
-
-
-        
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 class KeepAlive(object):
@@ -472,24 +449,23 @@ class KeepAlive(object):
 
     def _connect(self):
         sock_type = socket.SOCK_DGRAM if self.udp else socket.SOCK_STREAM
-        sock = new_socket_reuse(socket.AF_INET, sock_type)
-        if self.interface is not None:
-            if hasattr(socket, "SO_BINDTODEVICE"):
-                sock.setsockopt(
-                    socket.SOL_SOCKET, socket.SO_BINDTODEVICE, self.interface.encode() + b"\0"
-                )
-            else:
-                Logger.warning("keep-alive: Ignoring unsupported SO_BINDTODEVICE.")
-        sock.bind((self.source_host, self.source_port))
-        sock.settimeout(3)
+        sock = socket.socket(socket.AF_INET, sock_type)
+        socket_set_opt(
+            sock,
+            reuse       = True,
+            bind_addr   = (self.source_host, self.source_port),
+            interface   = self.interface,
+            timeout     = 3
+        )
         sock.connect((self.host, self.port))
-        Logger.debug("keep-alive: Connected to host %s" % (
-            addr_to_uri((self.host, self.port), udp=self.udp)
-        ))
+        if not self.udp:
+            Logger.debug("keep-alive: Connected to host %s" % (
+                addr_to_uri((self.host, self.port), udp=self.udp)
+            ))
+            if self.reconn:
+                Logger.info("keep-alive: connection restored")
+        self.reconn = False
         self.sock = sock
-        if self.reconn and not self.udp:
-            Logger.info("keep-alive: connection restored")
-            self.reconn = False
 
     def keep_alive(self):
         if self.sock is None:
@@ -509,7 +485,7 @@ class KeepAlive(object):
     def _keep_alive_tcp(self):
         # send a HTTP request
         self.sock.sendall((
-            "GET /keep-alive HTTP/1.1\r\n"
+            "HEAD /natter-keep-alive HTTP/1.1\r\n"
             "Host: %s\r\n"
             "User-Agent: curl/8.0.0 (Natter)\r\n"
             "Accept: */*\r\n"
@@ -543,7 +519,7 @@ class KeepAlive(object):
         except socket.timeout as ex:
             if not buff:
                 raise ex
-            # temp fix: Keep-alive cause STUN socket timeout on Windows
+            # fix: Keep-alive cause STUN socket timeout on Windows
             if sys.platform == "win32":
                 self.reset()
             return
@@ -570,8 +546,12 @@ class ForwardTestServer(object):
     # target address is ignored
     def start_forward(self, ip, port, toip, toport, udp=False):
         self.sock_type = socket.SOCK_DGRAM if udp else socket.SOCK_STREAM
-        self.sock = new_socket_reuse(socket.AF_INET, self.sock_type)
-        self.sock.bind(('', port))
+        self.sock = socket.socket(socket.AF_INET, self.sock_type)
+        socket_set_opt(
+            self.sock,
+            reuse       = True,
+            bind_addr   = ("", port)
+        )
         Logger.debug("fwd-test: Starting test server at %s" % addr_to_uri((ip, port), udp=udp))
         if udp:
             th = start_daemon_thread(self._test_server_run_udp)
@@ -616,7 +596,7 @@ class ForwardTestServer(object):
             try:
                 msg, addr = self.sock.recvfrom(self.buff_size)
                 Logger.debug("fwd-test: got client %s" % (addr,))
-                self.sock.sendto(b"It works! - Natter\r\n", addr) 
+                self.sock.sendto(b"It works! - Natter\r\n", addr)
             except (OSError, socket.error):
                 return
 
@@ -628,7 +608,7 @@ class ForwardTestServer(object):
 
 class ForwardIptables(object):
     def __init__(self, snat=False, sudo=False):
-        self.uuid = self._get_uuid4()
+        self.rules = []
         self.active = False
         self.min_ver = (1, 4, 1)
         self.curr_ver = (0, 0, 0)
@@ -707,21 +687,18 @@ class ForwardIptables(object):
 
     def _iptables_clean(self):
         Logger.debug("fwd-iptables: Cleaning up Natter rules")
-        rules = subprocess.check_output(
-            self.iptables_cmd + ["-t", "nat", "--list-rules", "NATTER"]
-        ).decode().splitlines()
-        rules += subprocess.check_output(
-            self.iptables_cmd + ["-t", "nat", "--list-rules", "NATTER_SNAT"]
-        ).decode().splitlines()
-        for rule in rules:
-            m = re.search(r"NATTER_UUID=([0-9a-f\-]+)", rule)
-            if not rule.startswith("-A NATTER") or not m:
-                continue
-            rule_uuid = m.group(1)
-            if rule_uuid == self.uuid:
+        while self.rules:
+            rule = self.rules.pop()
+            rule_rm = ["-D" if arg in ("-I", "-A") else arg for arg in rule]
+            try:
                 subprocess.check_output(
-                    self.iptables_cmd + ["-t", "nat", "-D"] + shlex.split(rule[2:])
+                    self.iptables_cmd + rule_rm,
+                    stderr=subprocess.STDOUT
                 )
+                return
+            except subprocess.CalledProcessError as ex:
+                Logger.error("fwd-iptables: Failed to execute %s: %s" % (ex.cmd, ex.output))
+                continue
 
     def start_forward(self, ip, port, toip, toport, udp=False):
         if ip != toip:
@@ -732,27 +709,29 @@ class ForwardIptables(object):
         Logger.debug("fwd-iptables: Adding rule %s forward to %s" % (
             addr_to_uri((ip, port), udp=udp), addr_to_uri((toip, toport), udp=udp)
         ))
-        subprocess.check_output(self.iptables_cmd + [
+        rule = [
             "-t",       "nat",
             "-I",       "NATTER",
             "-p",       proto,
             "--dst",    ip,
             "--dport",  "%d" % port,
             "-j",       "DNAT",
-            "--to-destination", "%s:%d" % (toip, toport),
-            "-m", "comment", "--comment", "NATTER_UUID=%s" % self.uuid
-        ])
+            "--to-destination", "%s:%d" % (toip, toport)
+        ]
+        subprocess.check_output(self.iptables_cmd + rule)
+        self.rules.append(rule)
         if self.snat:
-            subprocess.check_output(self.iptables_cmd + [
+            rule = [
                 "-t",       "nat",
                 "-I",       "NATTER_SNAT",
                 "-p",       proto,
                 "--dst",    toip,
                 "--dport",  "%d" % toport,
                 "-j",       "SNAT",
-                "--to-source", ip,
-                "-m", "comment", "--comment", "NATTER_UUID=%s" % self.uuid
-            ])
+                "--to-source", ip
+            ]
+            subprocess.check_output(self.iptables_cmd + rule)
+            self.rules.append(rule)
         self.active = True
 
     def stop_forward(self):
@@ -769,22 +748,6 @@ class ForwardIptables(object):
                 raise OSError("IP forwarding is not allowed. Please do `sysctl net.ipv4.ip_forward=1`")
         else:
             Logger.warning("fwd-iptables: '%s' not found" % str(fpath))
-
-    def _get_uuid4(self):
-        fpath = "/proc/sys/kernel/random/uuid"
-        if os.path.exists(fpath):
-            fin = open(fpath, "r")
-            buff = fin.read()
-            fin.close()
-            return buff.strip()
-        else:
-            return "%08x-%04x-%04x-%04x-%04x%08x" % (
-                random.getrandbits(32),
-                random.getrandbits(16),
-                random.getrandbits(12) | 0x4000,
-                random.getrandbits(14) | 0x8000,
-                random.getrandbits(16), random.getrandbits(32)
-            )
 
 
 class ForwardSudoIptables(ForwardIptables):
@@ -1077,8 +1040,12 @@ class ForwardSocket(object):
         if (ip, port) == (toip, toport):
             raise ValueError("Cannot forward to the same address %s" % addr_to_str((ip, port)))
         self.sock_type = socket.SOCK_DGRAM if udp else socket.SOCK_STREAM
-        self.sock = new_socket_reuse(socket.AF_INET, self.sock_type)
-        self.sock.bind(("", port))
+        self.sock = socket.socket(socket.AF_INET, self.sock_type)
+        socket_set_opt(
+            self.sock,
+            reuse       = True,
+            bind_addr   = ("", port)
+        )
         self.outbound_addr = toip, toport
         Logger.debug("fwd-socket: Starting socket %s forward to %s" % (
             addr_to_uri((ip, port), udp=udp), addr_to_uri((toip, toport), udp=udp)
@@ -1182,6 +1149,310 @@ class ForwardSocket(object):
         self.active = False
 
 
+class UPnPService(object):
+    def __init__(self, device, bind_ip = None, interface = None):
+        self.device             = device
+        self.service_type       = None
+        self.service_id         = None
+        self.scpd_url           = None
+        self.control_url        = None
+        self.eventsub_url       = None
+        self._sock_timeout      = 3
+        self._bind_ip           = bind_ip
+        self._bind_interface    = interface
+
+    def __repr__(self):
+        return "<UPnPService service_type=%s, service_id=%s>" % (
+            repr(self.service_type), repr(self.service_id)
+        )
+
+    def is_valid(self):
+        if self.service_type and self.service_id and self.control_url:
+            return True
+        return False
+
+    def is_forward(self):
+        if self.service_type in (
+            "urn:schemas-upnp-org:service:WANIPConnection:1",
+            "urn:schemas-upnp-org:service:WANIPConnection:2",
+            "urn:schemas-upnp-org:service:WANPPPConnection:1"
+        ) and self.service_id and self.control_url:
+            return True
+        return False
+
+    def forward_port(self, host, port, dest_host, dest_port, udp=False, duration=0):
+        if not self.is_forward():
+            raise NotImplementedError("Unsupported service type: %s" % self.service_type)
+
+        proto = "UDP" if udp else "TCP"
+        ctl_hostname, ctl_port, ctl_path = split_url(self.control_url)
+        descpt = "Natter"
+        content = (
+            "<?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n"
+            "<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\"\r\n"
+            "  s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\">\r\n"
+            "  <s:Body>\r\n"
+            "    <m:AddPortMapping xmlns:m=\"%s\">\r\n"
+            "      <NewRemoteHost>%s</NewRemoteHost>\r\n"
+            "      <NewExternalPort>%s</NewExternalPort>\r\n"
+            "      <NewProtocol>%s</NewProtocol>\r\n"
+            "      <NewInternalPort>%s</NewInternalPort>\r\n"
+            "      <NewInternalClient>%s</NewInternalClient>\r\n"
+            "      <NewEnabled>1</NewEnabled>\r\n"
+            "      <NewPortMappingDescription>%s</NewPortMappingDescription>\r\n"
+            "      <NewLeaseDuration>%d</NewLeaseDuration>\r\n"
+            "    </m:AddPortMapping>\r\n"
+            "  </s:Body>\r\n"
+            "</s:Envelope>\r\n" % (
+                self.service_type, host, port, proto, dest_port, dest_host, descpt, duration
+            )
+        )
+        content_len = len(content.encode())
+        data = (
+            "POST %s HTTP/1.1\r\n"
+            "Host: %s:%d\r\n"
+            "User-Agent: curl/8.0.0 (Natter)\r\n"
+            "Accept: */*\r\n"
+            "SOAPAction: \"%s#AddPortMapping\"\r\n"
+            "Content-Type: text/xml\r\n"
+            "Content-Length: %d\r\n"
+            "Connection: close\r\n"
+            "\r\n"
+            "%s\r\n" % (ctl_path, ctl_hostname, ctl_port, self.service_type, content_len, content)
+        ).encode()
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        socket_set_opt(
+            sock,
+            bind_addr   = (self._bind_ip, 0) if self._bind_ip else None,
+            interface   = self._bind_interface,
+            timeout     = self._sock_timeout
+        )
+        sock.connect((ctl_hostname, ctl_port))
+        sock.sendall(data)
+        response = b""
+        while True:
+            buff = sock.recv(4096)
+            if not buff:
+                break
+            response += buff
+        sock.close()
+        r = response.decode("utf-8", "ignore")
+        errno = errmsg = ""
+        m = re.search(r"<errorCode\s*>([^<]*?)</errorCode\s*>", r)
+        if m:
+            errno = m.group(1).strip()
+        m = re.search(r"<errorDescription\s*>([^<]*?)</errorDescription\s*>", r)
+        if m:
+            errmsg = m.group(1).strip()
+        if errno or errmsg:
+            Logger.error("upnp: Error from service %s of device %s: [%s] %s" % (
+                self.service_type, self.device, errno, errmsg
+            ))
+            return False
+        return True
+
+
+class UPnPDevice(object):
+    def __init__(self, ipaddr, xml_urls, bind_ip = None, interface = None):
+        self.ipaddr = ipaddr
+        self.xml_urls = xml_urls
+        self.services = []
+        self.forward_srv = None
+        self._sock_timeout = 3
+        self._bind_ip = bind_ip
+        self._bind_interface = interface
+
+    def __repr__(self):
+        return "<UPnPDevice ipaddr=%s>" % (
+            repr(self.ipaddr),
+        )
+
+    def _load_services(self):
+        if self.services:
+            return
+        services_d = {}     # service_id => UPnPService()
+        for url in self.xml_urls:
+            sd = self._get_srv_dict(url)
+            services_d.update(sd)
+        self.services.extend(services_d.values())
+        for srv in self.services:
+            if srv.is_forward():
+                self.forward_srv = srv
+                break
+
+    def _http_get(self, url):
+        hostname, port, path = split_url(url)
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        socket_set_opt(
+            sock,
+            bind_addr   = (self._bind_ip, 0) if self._bind_ip else None,
+            interface   = self._bind_interface,
+            timeout     = self._sock_timeout
+        )
+        sock.connect((hostname, port))
+        data = (
+            "GET %s HTTP/1.1\r\n"
+            "Host: %s\r\n"
+            "User-Agent: curl/8.0.0 (Natter)\r\n"
+            "Accept: */*\r\n"
+            "Connection: close\r\n"
+            "\r\n" % (path, hostname)
+        ).encode()
+        sock.sendall(data)
+        response = b""
+        while True:
+            buff = sock.recv(4096)
+            if not buff:
+                break
+            response += buff
+        sock.close()
+        if not response.startswith(b"HTTP/"):
+            raise ValueError("Invalid response from HTTP server")
+        s = response.split(b"\r\n\r\n", 1)
+        if len(s) != 2:
+            raise ValueError("Invalid response from HTTP server")
+        return s[1]
+
+    def _get_srv_dict(self, url):
+        try:
+            xmlcontent = self._http_get(url).decode("utf-8", "ignore")
+        except (OSError, socket.error, ValueError) as ex:
+            Logger.error("upnp: failed to load service from %s: %s" % (url, ex))
+            return
+        services_d = {}
+        srv_str_l = re.findall(r"<service\s*>([\s\S]+?)</service\s*>", xmlcontent)
+        for srv_str in srv_str_l:
+            srv = UPnPService(self, bind_ip=self._bind_ip, interface=self._bind_interface)
+            m = re.search(r"<serviceType\s*>([^<]*?)</serviceType\s*>", srv_str)
+            if m:
+                srv.service_type    = m.group(1).strip()
+            m = re.search(r"<serviceId\s*>([^<]*?)</serviceId\s*>", srv_str)
+            if m:
+                srv.service_id      = m.group(1).strip()
+            m = re.search(r"<SCPDURL\s*>([^<]*?)</SCPDURL\s*>", srv_str)
+            if m:
+                srv.scpd_url        = full_url(m.group(1).strip(), url)
+            m = re.search(r"<controlURL\s*>([^<]*?)</controlURL\s*>", srv_str)
+            if m:
+                srv.control_url     = full_url(m.group(1).strip(), url)
+            m = re.search(r"<eventSubURL\s*>([^<]*?)</eventSubURL\s*>", srv_str)
+            if m:
+                srv.eventsub_url    = full_url(m.group(1).strip(), url)
+            if srv.is_valid():
+                services_d[srv.service_id] = srv
+        return services_d
+
+
+class UPnPClient(object):
+    def __init__(self, bind_ip = None, interface = None):
+        self.ssdp_addr          = ("239.255.255.250", 1900)
+        self.router             = None
+        self._sock_timeout      = 1
+        self._fwd_host          = None
+        self._fwd_port          = None
+        self._fwd_dest_host     = None
+        self._fwd_dest_port     = None
+        self._fwd_udp           = False
+        self._fwd_duration      = 0
+        self._fwd_started       = False
+        self._bind_ip           = bind_ip
+        self._bind_interface    = interface
+
+    def discover_router(self):
+        router_l = []
+        try:
+            devs = self._discover()
+            for dev in devs:
+                if dev.forward_srv:
+                    router_l.append(dev)
+        except (OSError, socket.error) as ex:
+            Logger.error("upnp: failed to discover router: %s" % ex)
+        if not router_l:
+            self.router = None
+        elif len(router_l) > 1:
+            Logger.warning("upnp: multiple routers found: %s" % (router_l,))
+            self.router = router_l[0]
+        else:
+            self.router = router_l[0]
+        return self.router
+
+    def _discover(self):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        socket_set_opt(
+            sock,
+            reuse       = True,
+            bind_addr   = (self._bind_ip, 0) if self._bind_ip else None,
+            interface   = self._bind_interface,
+            timeout     = self._sock_timeout
+        )
+        dat01 = (
+            "M-SEARCH * HTTP/1.1\r\n"
+            "ST: ssdp:all\r\n"
+            "MX: 2\r\n"
+            "MAN: \"ssdp:discover\"\r\n"
+            "HOST: %s:%d\r\n"
+            "\r\n" % self.ssdp_addr
+        ).encode()
+
+        dat02 = (
+            "M-SEARCH * HTTP/1.1\r\n"
+            "ST: upnp:rootdevice\r\n"
+            "MX: 2\r\n"
+            "MAN: \"ssdp:discover\"\r\n"
+            "HOST: %s:%d\r\n"
+            "\r\n" % self.ssdp_addr
+        ).encode()
+
+        sock.sendto(dat01, self.ssdp_addr)
+        sock.sendto(dat02, self.ssdp_addr)
+
+        upnp_urls_d = {}
+        while True:
+            try:
+                buff, addr = sock.recvfrom(4096)
+                m = re.search(r"LOCATION: *(http://[^\[]\S+)\s+", buff.decode("utf-8"))
+                if not m:
+                    continue
+                ipaddr = addr[0]
+                location = m.group(1)
+                Logger.debug("upnp: Got URL %s" % location)
+                if ipaddr in upnp_urls_d:
+                    upnp_urls_d[ipaddr].add(location)
+                else:
+                    upnp_urls_d[ipaddr] = set([location])
+            except socket.timeout:
+                break
+
+        devs = []
+        for ipaddr, urls in upnp_urls_d.items():
+            d = UPnPDevice(ipaddr, urls, bind_ip=self._bind_ip, interface=self._bind_interface)
+            d._load_services()
+            devs.append(d)
+
+        return devs
+
+    def forward(self, host, port, dest_host, dest_port, udp=False, duration=0):
+        if not self.router:
+            raise RuntimeError("No router is available")
+        self.router.forward_srv.forward_port(host, port, dest_host, dest_port, udp, duration)
+        self._fwd_host      = host
+        self._fwd_port      = port
+        self._fwd_dest_host = dest_host
+        self._fwd_dest_port = dest_port
+        self._fwd_udp       = udp
+        self._fwd_duration  = duration
+        self._fwd_started   = True
+
+    def renew(self):
+        if not self._fwd_started:
+            raise RuntimeError("UPnP forward not started")
+        self.router.forward_srv.forward_port(
+            self._fwd_host, self._fwd_port, self._fwd_dest_host,
+            self._fwd_dest_port, self._fwd_udp, self._fwd_duration
+        )
+        Logger.debug("upnp: OK")
+
+
 class NatterExitException(Exception):
     pass
 
@@ -1190,12 +1461,23 @@ class NatterRetryException(Exception):
     pass
 
 
-def new_socket_reuse(family, socket_type):
-    sock = socket.socket(family, socket_type)
-    if hasattr(socket, "SO_REUSEADDR"):
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    if hasattr(socket, "SO_REUSEPORT"):
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+def socket_set_opt(sock, reuse=False, bind_addr=None, interface=None, timeout=-1):
+    if reuse:
+        if hasattr(socket, "SO_REUSEADDR"):
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        if hasattr(socket, "SO_REUSEPORT"):
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+    if interface is not None:
+        if hasattr(socket, "SO_BINDTODEVICE"):
+            sock.setsockopt(
+                socket.SOL_SOCKET, socket.SO_BINDTODEVICE, interface.encode() + b"\0"
+            )
+        else:
+            raise RuntimeError("Binding to an interface is not supported on your platform.")
+    if bind_addr is not None:
+        sock.bind(bind_addr)
+    if timeout != -1:
+        sock.settimeout(timeout)
     return sock
 
 
@@ -1246,8 +1528,12 @@ def check_docker_network():
     fo = open("/sys/class/net/eth0/address", "r")
     macaddr = fo.read().strip()
     fo.close()
-    fqdn = socket.getfqdn()
-    ipaddr = socket.gethostbyname(fqdn)
+    hostname = socket.gethostname()
+    try:
+        ipaddr = socket.gethostbyname(hostname)
+    except socket.gaierror:
+        Logger.warning("check-docket-network: Cannot resolve hostname `%s`" % hostname)
+        return
     docker_macaddr = "02:42:" + ":".join(["%02x" % int(x) for x in ipaddr.split(".")])
     if macaddr == docker_macaddr:
         raise RuntimeError("Docker's `--net=host` option is required.")
@@ -1258,8 +1544,30 @@ def check_docker_network():
     uname_r = fo.read().strip()
     fo.close()
     uname_r_sfx = uname_r.rsplit("-").pop()
-    if uname_r_sfx.lower() in ["linuxkit", "wsl2"] and fqdn.lower() == "docker-desktop":
+    if uname_r_sfx.lower() in ["linuxkit", "wsl2"] and hostname.lower() == "docker-desktop":
         raise RuntimeError("Network from Docker Desktop is not supported.")
+
+
+def split_url(url):
+    m = re.match(
+        r"^http://([^\[\]:/]+)(?:\:([0-9]+))?(/\S*)?$", url
+    )
+    if not m:
+        raise ValueError("Unsupported URL: %s" % url)
+    hostname, port_str, path = m.groups()
+    port = 80
+    if port_str:
+        port = int(port_str)
+    if not path:
+        path = "/"
+    return hostname, port, path
+
+
+def full_url(u, refurl):
+    if not u.startswith("/"):
+        return u
+    hostname, port, _ = split_url(refurl)
+    return "http://%s:%d" % (hostname, port) + u
 
 
 def addr_to_str(addr):
@@ -1324,7 +1632,17 @@ def natter_main(show_title = True):
 
 
 
+
+
+
+
+
+
     global main_port
+
+
+
+
 
 
 
@@ -1346,7 +1664,7 @@ def natter_main(show_title = True):
     )
     group = argp.add_argument_group("options")
     group.add_argument(
-        "--version", '-V', action="version", version="Natter %s" % __version__,
+        "--version", "-V", action="version", version="Natter %s" % __version__,
         help="show the version of Natter and exit"
     )
     group.add_argument(
@@ -1360,6 +1678,9 @@ def natter_main(show_title = True):
     )
     group.add_argument(
         "-u", action="store_true", help="UDP mode"
+    )
+    group.add_argument(
+        "-U", action="store_true", help="enable UPnP/IGD discovery"
     )
     group.add_argument(
         "-k", type=int, metavar="<interval>", default=15,
@@ -1407,6 +1728,7 @@ def natter_main(show_title = True):
     args = argp.parse_args()
     verbose = args.v
     udp_mode = args.u
+    upnp_enabled = args.U
     interval = args.k
     stun_list = args.s
     keepalive_srv = args.h
@@ -1422,6 +1744,15 @@ def natter_main(show_title = True):
 
 
 
+
+
+
+
+
+
+
+
+    
     # 存储到全局变量中
     if to_port != 0:
         main_port = to_port
@@ -1472,6 +1803,8 @@ def natter_main(show_title = True):
     if not stun_list:
         stun_list = [
             "fwa.lifesizecloud.com",
+            "global.turn.twilio.com",
+            "turn.cloudflare.com",
             "stun.isp.net.au",
             "stun.nextcloud.com",
             "stun.freeswitch.org",
@@ -1480,15 +1813,25 @@ def natter_main(show_title = True):
             "stun.sipnet.com",
             "stun.radiojar.com",
             "stun.sonetel.com",
-            "stun.voipgate.com"
+            "stun.telnyx.com"
         ]
-        if udp_mode:
-            stun_list = ["stun.miwifi.com", "stun.qq.com", "stun.chat.bilibili.com"] + stun_list
+        if not udp_mode:
+            stun_list = stun_list + [
+                "turn.cloud-rtc.com:80"
+            ]
+        else:
+            stun_list = [
+                "stun.miwifi.com",
+                "stun.chat.bilibili.com",
+                "stun.hitv.com",
+                "stun.cdnbye.com",
+                "stun.douyucdn.cn:18000"
+            ] + stun_list
 
     if not keepalive_srv:
         keepalive_srv = "www.baidu.com"
         if udp_mode:
-            keepalive_srv = "8.8.8.8"
+            keepalive_srv = "119.29.29.29"
 
     stun_srv_list = []
     for item in stun_list:
@@ -1574,7 +1917,7 @@ def natter_main(show_title = True):
     # if not specified, the target port is set to be the same as the outer port
     if not to_port:
         to_port = outer_addr[1]
-    
+
     # some exceptions: ForwardNone and ForwardTestServer are not real forward methods,
     # so let target ip and port equal to natter's
     if ForwardImpl in (ForwardNone, ForwardTestServer):
@@ -1583,6 +1926,29 @@ def natter_main(show_title = True):
     to_addr = (to_ip, to_port)
     forwarder.start_forward(natter_addr[0], natter_addr[1], to_addr[0], to_addr[1], udp=udp_mode)
     NatterExit.set_atexit(forwarder.stop_forward)
+
+    # UPnP
+    upnp = None
+    upnp_router = None
+    upnp_ready = False
+
+    if upnp_enabled:
+        upnp = UPnPClient(bind_ip=natter_addr[0], interface=bind_interface)
+        Logger.info()
+        Logger.info("Scanning UPnP Devices...")
+        try:
+            upnp_router = upnp.discover_router()
+        except (OSError, socket.error, ValueError) as ex:
+            Logger.error("upnp: failed to discover router: %s" % ex)
+
+    if upnp_router:
+        Logger.info("[UPnP] Found router %s" % upnp_router.ipaddr)
+        try:
+            upnp.forward("", bind_port, bind_ip, bind_port, udp=udp_mode, duration=interval*3)
+        except (OSError, socket.error, ValueError) as ex:
+            Logger.error("upnp: failed to forward port: %s" % ex)
+        else:
+            upnp_ready = True
 
     # Display route information
     Logger.info()
@@ -1665,6 +2031,11 @@ def natter_main(show_title = True):
                 Logger.error("keep-alive: connection broken: %s" % ex)
             keep_alive.reset()
             need_recheck = True
+        if upnp_ready:
+            try:
+                upnp.renew()
+            except (OSError, socket.error) as ex:
+                Logger.error("upnp: failed to renew upnp: %s" % ex)
         sleep_sec = interval - (time.time() - ts)
         if sleep_sec > 0:
             time.sleep(sleep_sec)

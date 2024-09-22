@@ -7,16 +7,17 @@ import sys
 import subprocess
 import threading
 import socket
+import time
 
 
 # 获取本地主机名
 host_name = socket.gethostname()
         
         # 获取本地IP地址 ，没有获取到就改成127.0.0.1
-custom_host = socket.gethostbyname(host_name) if socket.gethostbyname(host_name) else "127.0.0.1"
+# custom_host = socket.gethostbyname(host_name) if socket.gethostbyname(host_name) else "127.0.0.1"
 
-#如果不想挂载到局域网，那就用这个
-# custom_host = "127.0.0.1"
+#如果不想挂载到局域网，那就用这个 
+custom_host = "127.0.0.1"
 
 
 #默认只挂载到本机内网地址，  想要在公网访问就自己把custom_host改成 '0.0.0.0' 
@@ -387,6 +388,8 @@ def NATTER():
 
 def execute_natter(port_key, port_number, Network_protocols):
     try:
+         # 等待一段时间之后再执行
+        time.sleep(1)
 
          # 构建命令并执行
         command = ['python', 'py/natter.py', str(Startup_parameters), str(port_number)]
@@ -446,7 +449,9 @@ def natter_py():
                 # 多线程  (给自己写个提醒，在端口少的时候可以这样写，但是端口多的时候这样写，可能会爆掉，一个端口一个线程)
                 thread = threading.Thread(target=execute_natter, args=(port_key, port_number, Network_protocols))
                 thread.start()
-                
+
+                # 等待一段时间之后再遍历
+                time.sleep(1)
 
 
 
@@ -516,6 +521,10 @@ def ddns_py():
 
         # 启动ddsnIPV4
         threading.Thread(target=lambda: subprocess.run(['python', 'py/ddnsIPV4.py'])).start()
+        
+        
+        # 等待一段时间之后再执行
+        time.sleep(1)
 
 
 
@@ -532,9 +541,14 @@ def ddns_py():
                 # 获取需要映射的端口号
                 port_SRV = config_datas[port_keys]['PORT']
 
-                # 多线程
+                # 多线程  (给自己写个提醒，在端口少的时候可以这样写，但是端口多的时候这样写，可能会爆掉，一个端口一个线程)
                 thread = threading.Thread(target=execute_ddns, args=(port_keys, port_SRV))
                 thread.start()
+
+                # 等待一段时间之后再遍历
+                time.sleep(1)
+
+
 
                 
     except Exception as e:
@@ -697,7 +711,6 @@ if __name__ == '__main__':
     os.environ['PYTHONMALLOC'] = 'debug'  
     os.environ['PYDEVD_DISABLE_FILE_VALIDATION'] = '1'
     app.config['DEBUG'] = False   # 可选，用于启用内存调试
-
 
 
 

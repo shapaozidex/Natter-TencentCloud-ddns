@@ -66,8 +66,13 @@ domain_config = configs_ID.get(domain_config_id, {})
 def get_current_ip():
     try:
         with open("log/OPEN.json", "r", encoding="utf-8") as cache_file:
-            cache_data = json.load(cache_file)
-            mapped_external_ip = cache_data.get("mapped_external_ip", "")
+            # 只读取第一行
+            first_line = cache_file.readline().strip()  # 读取第一行并去除多余的空格和换行符
+            if first_line:
+                # 解析 JSON 数据
+                cache_data = json.loads(first_line)
+                # 获取 'ip' 字段
+                mapped_external_ip = cache_data.get("ip", "")
             current_ip = mapped_external_ip.splitlines()[0] if mapped_external_ip else None
     except (FileNotFoundError, json.JSONDecodeError, KeyError):
         current_ip = None
@@ -125,6 +130,8 @@ try:
         else:
                     log_message = "当前公网 IP 与之前保存的 IP 相同，无需更新"
                     logging.info(log_message)
+                    #正常情况下不用这条   logging.info(f"当前IP: {IP}, 上次IP: {last_IP}")
+
 
         # 等待一段时间之后继续检查
         time.sleep(config_static_IP["sleep"])

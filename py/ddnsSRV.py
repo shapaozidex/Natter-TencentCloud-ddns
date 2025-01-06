@@ -9,36 +9,38 @@ from tencentcloud.common.profile.http_profile import HttpProfile
 from tencentcloud.common.exception.tencent_cloud_sdk_exception import TencentCloudSDKException 
 from tencentcloud.dnspod.v20210323 import dnspod_client, models  
 
+# 获取当前脚本所在目录的父目录
+base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+log_dir = os.path.join(base_dir, 'log')
+config_dir = os.path.join(base_dir, 'config')
 
 # 设置日志级别为 INFO，修改 format 和 datefmt 参数
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s',  datefmt='%Y-%m-%d %H:%M')
 
 # 创建 log 目录
-log_directory = 'log'
-if not os.path.exists(log_directory):
-    os.makedirs(log_directory)
-        
+if not os.path.exists(log_dir):
+    os.makedirs(log_dir)
 
 # 添加文件处理器，将日志写入到文件中
-log_file_path = 'log/ddns.log'
+log_file_path = os.path.join(log_dir, 'ddns.log')
 file_handler = logging.FileHandler(log_file_path, encoding='utf-8')
 file_handler.setLevel(logging.INFO)
 file_handler.setFormatter(logging.Formatter('%(asctime)s - %(message)s', '%Y-%m-%d %H:%M'))
 logging.getLogger().addHandler(file_handler)
 
+# 读取配置文件
+config_id_path = os.path.join(config_dir, 'ID.json')
+config_srv_path = os.path.join(config_dir, 'natter.json')
+config_ipv4_path = os.path.join(config_dir, 'config.json')
 
 # 读取整个配置文件
-with open('config/ID.json', 'r', encoding='utf-8') as config_ID:
+with open(config_id_path, 'r', encoding='utf-8') as config_ID:
     configs_ID = json.load(config_ID)  
 
-
-# 读取整个配置文件
-with open('config/natter.json', 'r', encoding='utf-8') as config_SRV:
+with open(config_srv_path, 'r', encoding='utf-8') as config_SRV:
     configs_SRV = json.load(config_SRV)  
 
-
-# 读取整个配置文件
-with open('config/config.json', 'r', encoding='utf-8') as config_IPV4:
+with open(config_ipv4_path, 'r', encoding='utf-8') as config_IPV4:
     configs_IPV4 = json.load(config_IPV4)
 
 
@@ -80,12 +82,12 @@ PORT_IDENTIFIER = Static_Port()
 # 读取缓存文件中的动态端口信息
 def read_dynamic_port():
     try:
-        with open("log/OPEN.json", "r", encoding="utf-8") as cache_file:
+        open_json_path = os.path.join(log_dir, 'OPEN.json')
+        with open(open_json_path, "r", encoding="utf-8") as cache_file:
             cache_data_list = [json.loads(line) for line in cache_file]
             
-            static_port = Static_Port()  # 通过 Static_Port() 获取静态端口
+            static_port = Static_Port()
             
-            # 在json中查找符合 LANport 的数据
             matching_data = next((data for data in cache_data_list if data.get("LANport") == static_port), None)
             
             dynamic_port = matching_data.get("port") if matching_data else None
@@ -140,6 +142,13 @@ try:
     while True:
             # 获取动态端口
         PORT = read_dynamic_port()
+
+        # 检查端口是否为空或无效
+        if not PORT:
+            log_message = "当前端口为空，跳过更新"
+            logging.info(log_message)
+            time.sleep(config_static_SRV["sleep"])
+            continue
 
         if PORT != last_PORT:    #对比
 

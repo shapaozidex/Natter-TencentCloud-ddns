@@ -1,6 +1,6 @@
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, redirect, url_for
 from flask_wtf import FlaskForm
-from wtforms import StringField, IntegerField
+from wtforms import StringField, IntegerField, SelectField
 import json
 import os
 import sys
@@ -8,6 +8,7 @@ import subprocess
 import threading
 import socket
 import time
+import signal
 
 
 # 获取本地主机名
@@ -17,7 +18,7 @@ host_name = socket.gethostname()
 # custom_host = socket.gethostbyname(host_name) if socket.gethostbyname(host_name) else "127.0.0.1"
 
 #如果不想挂载到局域网，那就用这个 
-custom_host = "127.0.0.1"
+custom_host = "0.0.0.0"
 
 
 #默认只挂载到本机内网地址，  想要在公网访问就自己把custom_host改成 '0.0.0.0' 
@@ -79,30 +80,18 @@ app.config['SECRET_KEY'] = 'your_secret_key'
 
 
 # 创建 config 目录
-log_directory = 'config'
-if not os.path.exists(log_directory):
-    os.makedirs(log_directory)
+log_directory = os.path.join(os.path.dirname(__file__), 'log')
+config_directory = os.path.join(os.path.dirname(__file__), 'config')
 
+# 确保目录存在
+for directory in [log_directory, config_directory]:
+    if not os.path.exists(directory):
+        os.makedirs(directory)
 
-
-
-# 设置路径 config.json
-BASE_DIR = os.path.abspath(os.path.dirname(__file__))
-CONFIG_FILE_PATH = os.path.join(BASE_DIR, 'config/config.json')
-
-# 设置路径 natter.json
-NATTER_DIR = os.path.abspath(os.path.dirname(__file__))
-NATTER_FILE_PATH = os.path.join(NATTER_DIR, 'config/natter.json')
-
-# 设置路径 ID.json
-ID_DIR = os.path.abspath(os.path.dirname(__file__))
-ID_FILE_PATH = os.path.join(ID_DIR, 'config/ID.json')
-
-
-
-
-
-
+# 设置配置文件路径
+CONFIG_FILE_PATH = os.path.join(config_directory, 'config.json')
+NATTER_FILE_PATH = os.path.join(config_directory, 'natter.json')
+ID_FILE_PATH = os.path.join(config_directory, 'ID.json')
 
 # 读取数据 config.json
 def read_config():
@@ -156,21 +145,25 @@ def write_ID(ID_data):
     with open(ID_FILE_PATH, 'w', encoding='utf-8') as ID_file:
         json.dump(ID_data, ID_file, indent=4, ensure_ascii=False)
 
-# 定义表单类 （不要问我为什么用这种笨办法写表单，问就是不会用 Flask ）
-class ConfigForm(FlaskForm):
+# 将原有的 ConfigForm 类替换为以下代码
+class PortConfigForm(FlaskForm):
+    record_id = IntegerField('Record-ID（选填）')
+    port = IntegerField('PORT')
+    protocols = SelectField('网络协议', choices=[('TCP', 'TCP'), ('UDP', 'UDP')], default='TCP')
+    subdomain = StringField('SubDomain（选填）')
+    record_line = StringField('Record-Line（选填）')
+    priority = StringField('priority（选填）')
 
+class ConfigForm(FlaskForm):
     tencent_api_secret_id = StringField('Secret-ID')
     tencent_api_secret_key = StringField('Secret-Key')
     tencent_api_endpoint = StringField('ddns服务器')
-
     script0_domain = StringField('域名')
-
     script1_RecordType = StringField('记录类型')
     script1_record_id = IntegerField('Record-ID')
     script1_subdomain = StringField('SubDomain')
     script1_record_line = StringField('Record-Line')
     script1_sleep = IntegerField('检测间隔')
-
     script2_RecordType = StringField('记录类型')
     script2_record_id = IntegerField('Record-ID')
     script2_subdomain = StringField('SubDomain')
@@ -178,152 +171,122 @@ class ConfigForm(FlaskForm):
     script2_priority = StringField('Priority')
     script2_sleep = IntegerField('检测间隔')
 
+class NatterForm(FlaskForm):
+    pass
 
-
-
-    PORT1_record_id = IntegerField('Record-ID（选填）')
-    PORT1_PORT = IntegerField('PORT')
-    PORT1_protocols = StringField('网络协议')
-    PORT1_subdomain = StringField('SubDomain（选填）')
-    PORT1_record_line = StringField('Record-Line（选填）')
-    PORT1_priority = StringField('priority（选填）')
-
-    PORT2_record_id = IntegerField('Record-ID（选填）')
-    PORT2_PORT = IntegerField('PORT')
-    PORT2_protocols = StringField('网络协议')
-    PORT2_subdomain = StringField('SubDomain（选填）')
-    PORT2_record_line = StringField('Record-Line（选填）')
-    PORT2_priority = StringField('priority（选填）')
-
-    PORT3_record_id = IntegerField('Record-ID（选填）')
-    PORT3_PORT = IntegerField('PORT')
-    PORT3_protocols = StringField('网络协议')
-    PORT3_subdomain = StringField('SubDomain（选填）')
-    PORT3_record_line = StringField('Record-Line（选填）')
-    PORT3_priority = StringField('priority（选填）')
-
-    PORT4_record_id = IntegerField('Record-ID（选填）')
-    PORT4_PORT = IntegerField('PORT')
-    PORT4_protocols = StringField('网络协议')
-    PORT4_subdomain = StringField('SubDomain（选填）')
-    PORT4_record_line = StringField('Record-Line（选填）')
-    PORT4_priority = StringField('priority（选填）')
-
-    PORT5_record_id = IntegerField('Record-ID（选填）')
-    PORT5_PORT = IntegerField('PORT')
-    PORT5_protocols = StringField('网络协议')
-    PORT5_subdomain = StringField('SubDomain（选填）')
-    PORT5_record_line = StringField('Record-Line（选填）')
-    PORT5_priority = StringField('priority（选填）')
-
-
-
-
-   
-
-
-# 定义路由，处理 GET 和 POST 请求时返回表单页面
+# 修改 natter 路由
 @app.route('/natter', methods=['GET', 'POST'])
 def natter():
-    form = ConfigForm()  
-
-
-
-#natter页面的现有信息
-
-    # 读取配置信息
     natter_data = read_natter()
-
+    port_forms = {}
+    form = FlaskForm()  # 添加这行来创建基础表单实例，用于CSRF保护
+    
     if request.method == 'POST':
+        # 检查是否是保存配置的操作
+        if request.form.get('save_config') == 'true':
+            try:
+                # 创建一个新的字典来存储更新后的数据
+                updated_data = {}
+                
+                # 从表单数据中提取所有端口键
+                port_keys = set()
+                for key in request.form.keys():
+                    if '-' in key:
+                        port_key = key.split('-')[0]
+                        port_keys.add(port_key)
+                
+                # 对端口键进行排序
+                sorted_port_keys = sorted(port_keys, key=lambda x: int(x.replace('PORT', '')))
+                
+                # 遍历排序后的端口键
+                for port_key in sorted_port_keys:
+                    # 获取表单中对应的数据
+                    port = request.form.get(f'{port_key}-port', '')
+                    protocols = request.form.get(f'{port_key}-protocols', '')
+                    record_id = request.form.get(f'{port_key}-record_id', '')
+                    subdomain = request.form.get(f'{port_key}-subdomain', '')
+                    record_line = request.form.get(f'{port_key}-record_line', '')
+                    priority = request.form.get(f'{port_key}-priority', '')
+                    
+                    # 保存所有配置项，不管是否有端口号
+                    updated_data[port_key] = {
+                        "PORT": int(port) if port and port.isdigit() else None,
+                        "PORT_protocols": protocols,
+                        "record_id": int(record_id) if record_id and record_id.isdigit() else None,
+                        "SubDomain": subdomain,
+                        "RecordLine": record_line,
+                        "priority": priority,
+                    }
+                
+                # 保存更新后的数据
+                write_natter(updated_data)
+                return redirect(url_for('natter'))
+            except Exception as e:
+                return f"Error saving data: {str(e)}", 500
+    
+    # 读取现有数据并按端口号排序
+    sorted_natter_data = dict(sorted(natter_data.items(), key=lambda x: int(x[0].replace('PORT', ''))))
+    
+    # 为每个已存在的端口配置创建表单
+    for port_key, port_config in sorted_natter_data.items():
+        port_form = PortConfigForm(prefix=port_key)
+        port_form.port.data = port_config.get('PORT')
+        port_form.protocols.data = port_config.get('PORT_protocols')
+        port_form.record_id.data = port_config.get('record_id')
+        port_form.subdomain.data = port_config.get('SubDomain')
+        port_form.record_line.data = port_config.get('RecordLine')
+        port_form.priority.data = port_config.get('priority')
+        port_forms[port_key] = port_form
+
+    return render_template('natter.html', port_forms=port_forms, form=form)
+
+# 添加新的路由用于添加端口配置
+@app.route('/add_port', methods=['POST'])
+def add_port():
+    natter_data = read_natter()
+    
+    # 找到可用的下一个端口键名
+    next_port_num = 1
+    while f"PORT{next_port_num}" in natter_data:
+        next_port_num += 1
+    
+    new_port_key = f"PORT{next_port_num}"
+    natter_data[new_port_key] = {
+        "PORT": None,
+        "PORT_protocols": "",
+        "record_id": None,
+        "SubDomain": "",
+        "RecordLine": "",
+        "priority": "",
+    }
+    
+    write_natter(natter_data)
+    return redirect(url_for('natter'))
+
+# 添加新的路由用于删除端口配置
+@app.route('/delete_port/<port_key>', methods=['POST'])
+def delete_port(port_key):
+    try:
+        natter_data = read_natter()
+        if port_key in natter_data:
+            app.logger.info(f"Deleting port configuration: {port_key}")
+            # 创建配置的备份
+            backup_data = natter_data.copy()
+            # 删除指定的端口配置
+            del natter_data[port_key]
+            # 写入新的配置
+            write_natter(natter_data)
+            app.logger.info(f"Successfully deleted port configuration: {port_key}")
+        else:
+            app.logger.warning(f"Port configuration not found: {port_key}")
+    except Exception as e:
+        app.logger.error(f"Error deleting port configuration {port_key}: {str(e)}")
+        # 如果发生错误，尝试恢复备份
+        if 'backup_data' in locals():
+            write_natter(backup_data)
+            app.logger.info("Restored configuration from backup")
         
-        # 将表单数据写入配置文件（natter.json）
-        natter_data = {
-
-            "PORT1": {
-                "PORT": form.PORT1_PORT.data,
-                "PORT_protocols": form.PORT1_protocols.data,
-                "record_id": form.PORT1_record_id.data,
-                "SubDomain": form.PORT1_subdomain.data,
-                "RecordLine": form.PORT1_record_line.data,
-                "priority":  form.PORT1_priority.data,
-            },
-            "PORT2": {
-                "PORT": form.PORT2_PORT.data,
-                "PORT_protocols": form.PORT2_protocols.data,
-                "record_id": form.PORT2_record_id.data,
-                "SubDomain": form.PORT2_subdomain.data,
-                "RecordLine": form.PORT2_record_line.data,
-                "priority":  form.PORT2_priority.data,
-            },
-            "PORT3": {
-                "PORT": form.PORT3_PORT.data,
-                "PORT_protocols": form.PORT3_protocols.data,
-                "record_id": form.PORT3_record_id.data,
-                "SubDomain": form.PORT3_subdomain.data,
-                "RecordLine": form.PORT3_record_line.data,
-                "priority":  form.PORT3_priority.data,
-            },
-            "PORT4": {
-                "PORT": form.PORT4_PORT.data,
-                "PORT_protocols": form.PORT4_protocols.data,
-                "record_id": form.PORT4_record_id.data,
-                "SubDomain": form.PORT4_subdomain.data,
-                "RecordLine": form.PORT4_record_line.data,
-                "priority":  form.PORT4_priority.data,
-            },
-            "PORT5": {
-                "PORT": form.PORT5_PORT.data,
-                "PORT_protocols": form.PORT5_protocols.data,
-                "record_id": form.PORT5_record_id.data,
-                "SubDomain": form.PORT5_subdomain.data,
-                "RecordLine": form.PORT5_record_line.data,
-                "priority":  form.PORT5_priority.data,
-            },    
-        }
-
-        # 将表单数据写入 natter.json
-        write_natter(natter_data)
-
-    #用加载的数据填充表单字段
-        
-
-    form.PORT1_PORT.data = natter_data.get("PORT1", {}).get("PORT", "")
-    form.PORT1_protocols.data = natter_data.get("PORT1", {}).get("PORT_protocols", "")
-    form.PORT1_record_id.data = natter_data.get("PORT1", {}).get("record_id", "")
-    form.PORT1_subdomain.data = natter_data.get("PORT1", {}).get("SubDomain", "")
-    form.PORT1_record_line.data = natter_data.get("PORT1", {}).get("RecordLine", "")
-    form.PORT1_priority.data = natter_data.get("PORT1", {}).get("priority", "")
-
-    form.PORT2_PORT.data = natter_data.get("PORT2", {}).get("PORT", "")
-    form.PORT2_protocols.data = natter_data.get("PORT2", {}).get("PORT_protocols", "")
-    form.PORT2_record_id.data = natter_data.get("PORT2", {}).get("record_id", "")
-    form.PORT2_subdomain.data = natter_data.get("PORT2", {}).get("SubDomain", "")
-    form.PORT2_record_line.data = natter_data.get("PORT2", {}).get("RecordLine", "")
-    form.PORT2_priority.data = natter_data.get("PORT2", {}).get("priority", "")
-
-    form.PORT3_PORT.data = natter_data.get("PORT3", {}).get("PORT", "")
-    form.PORT3_protocols.data = natter_data.get("PORT3", {}).get("PORT_protocols", "")
-    form.PORT3_record_id.data = natter_data.get("PORT3", {}).get("record_id", "")
-    form.PORT3_subdomain.data = natter_data.get("PORT3", {}).get("SubDomain", "")
-    form.PORT3_record_line.data = natter_data.get("PORT3", {}).get("RecordLine", "")
-    form.PORT3_priority.data = natter_data.get("PORT3", {}).get("priority", "")
-
-    form.PORT4_PORT.data = natter_data.get("PORT4", {}).get("PORT", "")
-    form.PORT4_protocols.data = natter_data.get("PORT4", {}).get("PORT_protocols", "")
-    form.PORT4_record_id.data = natter_data.get("PORT4", {}).get("record_id", "")
-    form.PORT4_subdomain.data = natter_data.get("PORT4", {}).get("SubDomain", "")
-    form.PORT4_record_line.data = natter_data.get("PORT4", {}).get("RecordLine", "")
-    form.PORT4_priority.data = natter_data.get("PORT4", {}).get("priority", "")
-
-    form.PORT5_PORT.data = natter_data.get("PORT5", {}).get("PORT", "")
-    form.PORT5_protocols.data = natter_data.get("PORT5", {}).get("PORT_protocols", "")
-    form.PORT5_record_id.data = natter_data.get("PORT5", {}).get("record_id", "")
-    form.PORT5_subdomain.data = natter_data.get("PORT5", {}).get("SubDomain", "")
-    form.PORT5_record_line.data = natter_data.get("PORT5", {}).get("RecordLine", "")
-    form.PORT5_priority.data = natter_data.get("PORT5", {}).get("priority", "")
-
-
-    return render_template('natter.html', form=form)
+    return redirect(url_for('natter'))
 
 
 
@@ -332,19 +295,15 @@ def natter():
 
 @app.route('/')
 def index():
-    # 获取Natter和DDNS日志文件的相对路径
-    natter_path = 'log/natter.log'
-    ddns_path = 'log/ddns.log'
-
-    # 读取Natter和DDNS日志文件内容
-    log_content_natter = log_file(natter_path)
-    log_content_ddns = log_file(ddns_path)
-
-    return render_template('index.html', natter_log=log_content_natter, ddns_log=log_content_ddns)
+    form = FlaskForm()
+    natter_log = log_file('natter.log')
+    ddns_log = log_file('ddns.log')
+    return render_template('index.html', form=form, natter_log=natter_log, ddns_log=ddns_log)
 
 def log_file(file_path):
     try:
-        with open(file_path, 'r', encoding='utf-8') as file:
+        log_path = os.path.join(log_directory, file_path)
+        with open(log_path, 'r', encoding='utf-8') as file:
             log_content = file.read()
         return log_content
     except FileNotFoundError:
@@ -376,90 +335,79 @@ def log_file(file_path):
 
 @app.route('/start_natter', methods=['GET', 'POST'])
 def NATTER():
-    if request.method == 'POST':
-        # 检查是否点击了"natter"按钮
-        if request.form.get('natter_button_clicked') == 'true':
-            # 执行 natter.py 脚本
-            natter_py()
+    if request.method == 'POST' and request.form.get('natter_button_clicked'):
+        # 执行 natter.py 脚本
+        natter_py()
+    return redirect(url_for('index'))
 
-    # 如果是 GET 请求或者其他情况，返回一个简单的响应
-    return render_template('index.html')
 
+def safe_remove_file(file_path):
+    """安全地删除或清空文件"""
+    try:
+        if os.path.exists(file_path):
+            try:
+                os.remove(file_path)
+            except (PermissionError, OSError):
+                # 如果无法删除，尝试清空文件内容
+                with open(file_path, 'w', encoding='utf-8') as f:
+                    f.truncate(0)
+    except Exception as e:
+        print(f"处理文件 {file_path} 时出错：{e}")
+
+def run_python_script(script_path, args=None, background=False):
+    """通用的 Python 脚本执行函数"""
+    try:
+        command = [sys.executable, script_path]
+        if args:
+            command.extend([str(arg) for arg in args])
+        
+        if background:
+            thread = threading.Thread(
+                target=lambda: subprocess.run(command),
+                daemon=True  # 设置为守护线程，这样主程序退出时会自动结束
+            )
+            thread.start()
+            return thread
+        else:
+            subprocess.run(command)
+    except Exception as e:
+        print(f"执行脚本 {script_path} 时出错：{e}")
 
 def execute_natter(port_key, port_number, Network_protocols):
+    """执行 Natter 脚本"""
     try:
-         # 等待一段时间之后再执行
         time.sleep(1)
-
-         # 构建命令并执行
-        command = ['python', 'py/natter.py', str(Startup_parameters), str(port_number)]
-
-
-
-
-        # 如果 Network_protocols 为 'udp'，则添加'-u'参数
+        args = [Startup_parameters, port_number]
         if Network_protocols == 'UDP':
-            command.append('-u')
-            subprocess.run(command)            # 执行命令
-
-        # 如果 Network_protocols 为 'tcp'，则直接执行命令
-        elif Network_protocols == 'TCP':
-            subprocess.run(command)            # 执行命令
-
-
-
-
-
+            args.append('-u')
+        run_python_script(os.path.join('py', 'natter.py'), args)
     except Exception as e:
         app.logger.error(f"执行 {port_key} 时出错：{e}")
 
-
 def natter_py():
+    """Natter 主程序"""
     try:
-        files_to_delete = ["OPEN.json", "natter.log", "ddns.log"]
-        directory = "log"
+        # 清理日志文件
+        safe_remove_file(os.path.join(log_directory, "OPEN.json"))
+        safe_remove_file(os.path.join(log_directory, "natter.log"))
+        safe_remove_file(os.path.join(log_directory, "ddns.log"))
 
-        for file in files_to_delete:
-            file_path = os.path.join(directory, file)
-            try:
-                if os.path.exists(file_path):
-                    os.remove(file_path)
-                    print(f"文件 {file} 删除成功")
-                else:
-                    print(f"文件 {file} 未找到")
-            except Exception as e:
-                print(f"删除 {file} 时出错：{e}")
+        # 读取配置并启动服务
+        with open(os.path.join(config_directory, 'natter.json'), 'r', encoding='utf-8') as f:
+            config_data = json.load(f)
 
-
-
-
-        # 使用指定的编码读取配置文件
-        with open('config/natter.json', 'r', encoding='utf-8') as config_file:
-            config_data = json.load(config_file)
-
-            
-        # 遍历所有符合条件的项
-        for port_key in ['PORT1', 'PORT2', 'PORT3', 'PORT4', 'PORT5']:
-            if port_key in config_data and config_data[port_key]['PORT'] is not None:
-                # 获取需要穿透的端口号
-                port_number = config_data[port_key]['PORT']
-                Network_protocols = config_data[port_key]['PORT_protocols']
-
-
-                # 多线程  (给自己写个提醒，在端口少的时候可以这样写，但是端口多的时候这样写，可能会爆掉，一个端口一个线程)
-                thread = threading.Thread(target=execute_natter, args=(port_key, port_number, Network_protocols))
+        for port_key, port_config in config_data.items():
+            if port_config.get('PORT') is not None:
+                thread = threading.Thread(
+                    target=execute_natter,
+                    args=(port_key, port_config['PORT'], port_config['PORT_protocols']),
+                    daemon=True
+                )
                 thread.start()
-
-                # 等待一段时间之后再遍历
                 time.sleep(1)
 
-
-
-
-
-
     except Exception as e:
-        app.logger.error(f"{e}")
+        app.logger.error(f"Natter 主程序出错：{e}")
 
 
 
@@ -479,80 +427,48 @@ def natter_py():
 
 @app.route('/start_ddns', methods=['GET', 'POST'])
 def DDNS():
-    if request.method == 'POST':
-        # 检查是否点击了"ddns"按钮
-        if request.form.get('ddns_button_clicked') == 'true':
-            # 执行 ddns.py 脚本
-            ddns_py()
-
-    # 如果是 GET 请求或者其他情况，返回一个简单的响应
-    return render_template('index.html')
+    if request.method == 'POST' and request.form.get('ddns_button_clicked') == 'true':
+        # 执行 ddns.py 脚本
+        ddns_py()
+    return redirect(url_for('index'))
 
 
 
-def execute_ddns(port_keys, port_SRV):
+def execute_ddns(port_key, port_SRV):
+    """执行 DDNS 脚本"""
     try:
-
-        # 构建命令并执行    启动ddnsSRV
-        command = ['python', 'py/ddnsSRV.py', str(port_SRV)]
-        subprocess.run(command)
-
-
-
-
-
+        run_python_script(os.path.join('py', 'ddnsSRV.py'), [port_SRV])
     except Exception as e:
-        app.logger.error(f"在执行 execute_natter 函数时发生错误，针对 {port_keys}: {e}")
+        app.logger.error(f"执行 DDNS 时出错，针对 {port_key}: {e}")
 
 
 
 def ddns_py():
-
+    """DDNS 主程序"""
     try:
+        # 清理日志文件
+        safe_remove_file(os.path.join(log_directory, 'ddns.log'))
 
-        # 删除 natter.log 文件
-
-        os.remove('log/ddns.log')
-    except FileNotFoundError:
-        pass     # 如果找不到文件，就继续执行
-
-
-
-
-        # 启动ddsnIPV4
-        threading.Thread(target=lambda: subprocess.run(['python', 'py/ddnsIPV4.py'])).start()
-        
-        
-        # 等待一段时间之后再执行
+        # 启动 DDNS 服务
+        run_python_script(os.path.join('py', 'ddnsIPV4.py'), background=True)
         time.sleep(1)
 
+        # 读取配置并启动 SRV 服务
+        with open(os.path.join(config_directory, 'natter.json'), 'r', encoding='utf-8') as f:
+            config_data = json.load(f)
 
-
-
-        
-       # 使用指定的编码读取配置文件
-        with open('config/natter.json', 'r', encoding='utf-8') as config_files:
-            config_datas = json.load(config_files)
-
-            
-        # 遍历所有符合条件的项
-        for port_keys in ['PORT1', 'PORT2', 'PORT3', 'PORT4', 'PORT5']:
-            if port_keys in config_datas and config_datas[port_keys]['PORT'] is not None:
-                # 获取需要映射的端口号
-                port_SRV = config_datas[port_keys]['PORT']
-
-                # 多线程  (给自己写个提醒，在端口少的时候可以这样写，但是端口多的时候这样写，可能会爆掉，一个端口一个线程)
-                thread = threading.Thread(target=execute_ddns, args=(port_keys, port_SRV))
+        for port_key, port_config in config_data.items():
+            if port_config.get('PORT') is not None:
+                thread = threading.Thread(
+                    target=execute_ddns,
+                    args=(port_key, port_config['PORT']),
+                    daemon=True
+                )
                 thread.start()
-
-                # 等待一段时间之后再遍历
                 time.sleep(1)
 
-
-
-                
     except Exception as e:
-        app.logger.error(f"{e}")
+        app.logger.error(f"DDNS 主程序出错：{e}")
 
 
 
@@ -642,10 +558,7 @@ def execute_get_id_script():
 @app.route('/ddns', methods=['GET', 'POST'])
 def navigation():
     form = ConfigForm() 
-   
-
-#ddns页面的现有信息
-
+    
     # 读取配置信息
     config_data = read_config()
 
@@ -664,22 +577,17 @@ def navigation():
                 "RecordType": form.script2_RecordType.data,
                 "sleep": form.script2_sleep.data,
             },
-
         }
 
         # 将表单数据写入 config.json
         write_config(config_data)
 
-      #用加载的数据填充表单字段
-
-
-
+    # 用加载的数据填充表单字段
     form.script1_record_id.data = config_data.get("script1", {}).get("record_id", "")
     form.script1_subdomain.data = config_data.get("script1", {}).get("SubDomain", "")
     form.script1_record_line.data = config_data.get("script1", {}).get("RecordLine", "")
     form.script1_RecordType.data = "A"
     form.script1_sleep.data = config_data.get("script1", {}).get("sleep", "")
-
 
     form.script2_record_line.data = config_data.get("script2", {}).get("RecordLine", "")
     form.script2_RecordType.data = "SRV"
@@ -703,14 +611,16 @@ def navigation():
 #    except ipaddress.AddressValueError:
 #        return "无效的IP地址", 400
 
-
-
+@app.route('/refresh_logs', methods=['POST'])
+def refresh_logs():
+    # 只刷新日志，不执行任何程序
+    return redirect(url_for('index'))
 
 if __name__ == '__main__':
     # 设置环境变量，禁用冻结模块
     os.environ['PYTHONMALLOC'] = 'debug'  
     os.environ['PYDEVD_DISABLE_FILE_VALIDATION'] = '1'
-    app.config['DEBUG'] = False   # 可选，用于启用内存调试
+    app.config['DEBUG'] = True   # 可选，用于启用内存调试
 
 
 

@@ -367,21 +367,23 @@ class StunClient(object):
 
 
 
-                        # 打印公网地址和端口
+
+            # 打印公网地址和端口
             outer_ip, outer_port = outer_addr
             protocol = "udp" if self.udp else "tcp"
             print("公网地址 {}://{}:{}".format(protocol, outer_ip, outer_port))
-            
-             # 将获取到的外部 IP 和端口分别赋值给全局变量
 
+            # 将获取到的外部 IP 和端口分别赋值给全局变量
+            log_directory = 'log'
+            open_file_path = os.path.join(log_directory, 'OPEN.json')
 
-            open_file_path = 'log/OPEN.json'
-        
+            # 添加协议信息到 open_data
             open_data = {
-            "ip": outer_ip,
-            "port": outer_port,
-            "LANport": main_port
-           }
+                "ip": outer_ip,
+                "port": outer_port,
+                "LANport": main_port,
+                "protocol": protocol  # 添加协议字段
+            }
 
             # 从文件中读取数据
             existing_data = []
@@ -390,24 +392,31 @@ class StunClient(object):
                     for line in file:
                         existing_data.append(json.loads(line))
 
-            # 检查文件中是否存在对应的 LANport
-            found = False
+
+            # 检查文件中是否存在对应的 LANport 和协议
             for i, data in enumerate(existing_data):
                 if data["LANport"] == main_port:
-                    # 替换原本的PROT
-                    existing_data[i] = open_data
-                    found = True
-                    break
+                    if data.get("protocol") == protocol:
+                        # 如果协议相同，替换原本的数据
+                        existing_data[i] = open_data
+                        break
+                    else:
+                        # 如果协议不同，不覆盖，允许继续写入新数据
+                        continue
 
-            # 对应的 LANport 不存在，写入新的 
-            if not found:
+            # 如果 LANport 未被完全匹配（协议不同或端口不存在），写入新的数据
+            if not any(data["LANport"] == main_port and data.get("protocol") == protocol for data in existing_data):
                 existing_data.append(open_data)
+
+
+
+            # 确保日志目录存在
+            os.makedirs(log_directory, exist_ok=True)
 
             # 将更新后的数据写回文件
             with open(open_file_path, 'w', encoding='utf-8') as open_file:
                 for data in existing_data:
                     open_file.write(json.dumps(data) + '\n')
-
 
 
 

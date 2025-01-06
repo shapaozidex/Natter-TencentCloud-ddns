@@ -620,7 +620,7 @@ if __name__ == '__main__':
     # 设置环境变量，禁用冻结模块
     os.environ['PYTHONMALLOC'] = 'debug'  
     os.environ['PYDEVD_DISABLE_FILE_VALIDATION'] = '1'
-    app.config['DEBUG'] = True   # 可选，用于启用内存调试
+    app.config['DEBUG'] = False   # 可选，用于启用内存调试
 
 
 

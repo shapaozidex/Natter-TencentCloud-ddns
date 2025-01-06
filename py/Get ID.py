@@ -75,7 +75,7 @@ try:
         try:
             priority, weight, port, target = value.split()
             return {
-                "priority": priority,
+                "priority": f"{priority} {weight}",
                 "port": int(port)
             }
         except (ValueError, AttributeError):
@@ -92,7 +92,7 @@ try:
             "RecordLine": record.Line,
             "PORT": parse_srv_value(record.Value)["port"],
             "PORT_protocols": "TCP",  # SRV记录默认是TCP
-            #"priority": parse_srv_value(record.Value)["priority"]
+            "priority": f"0 {i+1}"  # 保持第一个数字为0，只递增第二个数字
         } for i, record in enumerate(srv_records)
     }
 

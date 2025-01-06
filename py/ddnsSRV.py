@@ -138,31 +138,64 @@ last_PORT = None
 
 
 
+def create_srv_record(client, domain, port_config, dynamic_port):
+    """创建新的SRV记录"""
+    try:
+        req = models.CreateRecordRequest()
+        params = {
+            "Domain": domain,
+            "SubDomain": port_config.get("SubDomain"),
+            "RecordType": "SRV",  # SRV记录类型是固定的
+            "RecordLine": port_config.get("RecordLine", "默认"),  # 如果没有配置，使用默认
+            "Value": f"{port_config.get('priority', '0 1')} {dynamic_port} {domain}"  # 如果没有priority，使用默认值
+        }
+        req.from_json_string(json.dumps(params))
+        resp = client.CreateRecord(req)
+        
+        # 更新配置文件中的record_id
+        port_config["record_id"] = resp.RecordId
+        with open(config_srv_path, 'w', encoding='utf-8') as f:
+            json.dump(configs_SRV, f, indent=4, ensure_ascii=False)
+            
+        log_message = f"成功创建SRV记录，Record ID: {resp.RecordId}"
+        logging.info(log_message)
+        return resp.RecordId
+    except TencentCloudSDKException as err:
+        log_error = f"创建SRV记录失败：{err}"
+        logging.error(log_error)
+        return None
+
 try:
     while True:
-            # 获取动态端口
+        # 获取动态端口
         PORT = read_dynamic_port()
 
         # 检查端口是否为空或无效
         if not PORT:
             log_message = "当前端口为空，跳过更新"
             logging.info(log_message)
-            time.sleep(config_static_SRV["sleep"])
+            time.sleep(config_static_SRV.get("sleep", 300))  # 如果没有配置sleep，使用默认值300秒
             continue
 
         if PORT != last_PORT:    #对比
-
-
-
             last_PORT = PORT     #有变化就写进去
 
             try:
-                        # 修改 DDNS 记录
+                # 检查是否存在record_id
+                if not port_config.get("record_id"):
+                    # 创建新的SRV记录
+                    record_id = create_srv_record(client, domain_config["domain"], port_config, PORT)
+                    if not record_id:
+                        log_message = "创建SRV记录失败，跳过本次更新"
+                        logging.error(log_message)
+                        continue
+                
+                # 修改 DDNS 记录
                 req = models.ModifyRecordRequest()
                 params = {
                     "Domain": domain_config["domain"],
                     "SubDomain": port_config["SubDomain"],
-                    "RecordType": config_static_SRV["RecordType"],
+                    "RecordType": "SRV",  # SRV记录类型是固定的
                     "RecordId": port_config["record_id"],
                     "RecordLine": port_config["RecordLine"],
                     "Value": f"{port_config['priority']} {PORT} {domain_config['domain']}"
@@ -174,20 +207,16 @@ try:
                 log_message = f"您的域名 {domain_config['domain']} 更新成功, 当前端口号 {PORT}"
                 logging.info(log_message)
 
-
             except TencentCloudSDKException as err:
                 log_error = f"Tencent Cloud SDK 异常：{err}"
                 logging.error(log_error)
 
         else:
-                log_message = "当前 PORT 与之前保存的 PORT 相同，无需更新"
-                logging.info(log_message)
-
-
+            log_message = "当前 PORT 与之前保存的 PORT 相同，无需更新"
+            logging.info(log_message)
 
         # 等待一段时间之后继续检查
-        time.sleep(config_static_SRV["sleep"])
-
+        time.sleep(config_static_SRV.get("sleep", 300))  # 如果没有配置sleep，使用默认值300秒
 
 except Exception as e:
         log_error = f"发生严重错误：{e}"

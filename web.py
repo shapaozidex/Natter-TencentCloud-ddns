@@ -257,7 +257,7 @@ def add_port():
         "record_id": None,
         "SubDomain": "",
         "RecordLine": "",
-        "priority": "",
+        "priority": f"0 {next_port_num}",
     }
     
     write_natter(natter_data)

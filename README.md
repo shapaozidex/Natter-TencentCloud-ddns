@@ -6,14 +6,13 @@
 
 理论上只要能运行Natter的设备都能用（具体自测试）
 
- - 此分支基于[Natter-v2](https://github.com/MikeWang000000/Natter)，支持TCP以及UDP（windows端暂不支持UDP，具体等natter主线修复）
+ - 此分支基于[Natter-v2](https://github.com/MikeWang000000/Natter)，支持TCP以及UDP
 
  - Natter的具体功能及工作原理请自行前往[Natter-v2](https://github.com/MikeWang000000/Natter)查看
  - 这里只讲述如何使用[Natter-TencentCloud-ddns](https://github.com/shapaozidex/Natter-TencentCloud-ddns)
 
 ## 教程
-2.0版本开始不再打包exe，只发python脚本
-    下面开始教程
+
 
 1.先把整个包下载下来  解压
 
@@ -25,7 +24,9 @@
 
 
 3.打开腾讯云解析界面，随便创建两个解析，一个SRV类型的，一个A类型的 （如果你需要同时映射及穿透多个端口号就多创建几个SRV类型的）
- 目前最多支持5个SRV解析,因为支持SRV的软件太少了,所以就只写了5个
+
+ 目前初步支持了多端口添加，可能存在bug
+ 
   这里直接照着我的一模一样的填就行了（防止不会弄而出错，反正后面都会被ddns自动改掉）
   
   _minecraft._tcp  |  SRV  |   默认  |  0 5 9999 tencent.com. 

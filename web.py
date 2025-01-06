@@ -18,7 +18,7 @@ host_name = socket.gethostname()
 # custom_host = socket.gethostbyname(host_name) if socket.gethostbyname(host_name) else "127.0.0.1"
 
 #如果不想挂载到局域网，那就用这个 
-custom_host = "0.0.0.0"
+custom_host = "127.0.0.1"
 
 
 #默认只挂载到本机内网地址，  想要在公网访问就自己把custom_host改成 '0.0.0.0' 

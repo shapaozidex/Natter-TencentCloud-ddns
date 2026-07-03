@@ -8,7 +8,6 @@ import subprocess
 import threading
 import socket
 import time
-import signal
 
 
 # 获取本地主机名
@@ -18,7 +17,7 @@ host_name = socket.gethostname()
 # custom_host = socket.gethostbyname(host_name) if socket.gethostbyname(host_name) else "127.0.0.1"
 
 #如果不想挂载到局域网，那就用这个 
-custom_host = "0.0.0.0"
+custom_host = "127.0.0.1"
 
 
 #默认只挂载到本机内网地址，  想要在公网访问就自己把custom_host改成 '0.0.0.0' 
@@ -174,6 +173,27 @@ class ConfigForm(FlaskForm):
 class NatterForm(FlaskForm):
     pass
 
+def parse_optional_int(value):
+    """将配置中的 record_id 规范为整数或 None，避免界面显示 null"""
+    if value is None:
+        return None
+    if isinstance(value, str):
+        value = value.strip()
+        if not value or value.lower() in ('null', 'none'):
+            return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+def display_field_value(value):
+    """模板中安全显示可空字段，不输出 null/None 字面量"""
+    if value is None:
+        return ''
+    if isinstance(value, str) and value.strip().lower() in ('null', 'none'):
+        return ''
+    return value
+
 # 修改 natter 路由
 @app.route('/natter', methods=['GET', 'POST'])
 def natter():
@@ -208,15 +228,19 @@ def natter():
                     record_line = request.form.get(f'{port_key}-record_line', '')
                     priority = request.form.get(f'{port_key}-priority', '')
                     
+                    record_id_value = parse_optional_int(record_id)
+                    
                     # 保存所有配置项，不管是否有端口号
-                    updated_data[port_key] = {
+                    port_entry = {
                         "PORT": int(port) if port and port.isdigit() else None,
                         "PORT_protocols": protocols,
-                        "record_id": int(record_id) if record_id and record_id.isdigit() else None,
                         "SubDomain": subdomain,
-                        "RecordLine": record_line,
+                        "RecordLine": record_line.strip() if record_line and record_line.strip() else "默认",
                         "priority": priority,
                     }
+                    if record_id_value is not None:
+                        port_entry["record_id"] = record_id_value
+                    updated_data[port_key] = port_entry
                 
                 # 保存更新后的数据
                 write_natter(updated_data)
@@ -232,13 +256,13 @@ def natter():
         port_form = PortConfigForm(prefix=port_key)
         port_form.port.data = port_config.get('PORT')
         port_form.protocols.data = port_config.get('PORT_protocols')
-        port_form.record_id.data = port_config.get('record_id')
-        port_form.subdomain.data = port_config.get('SubDomain')
-        port_form.record_line.data = port_config.get('RecordLine')
-        port_form.priority.data = port_config.get('priority')
+        port_form.record_id.data = parse_optional_int(port_config.get('record_id'))
+        port_form.subdomain.data = port_config.get('SubDomain') or ''
+        port_form.record_line.data = port_config.get('RecordLine') or ''
+        port_form.priority.data = port_config.get('priority') or ''
         port_forms[port_key] = port_form
 
-    return render_template('natter.html', port_forms=port_forms, form=form)
+    return render_template('natter.html', port_forms=port_forms, form=form, display_field_value=display_field_value)
 
 # 添加新的路由用于添加端口配置
 @app.route('/add_port', methods=['POST'])
@@ -254,9 +278,8 @@ def add_port():
     natter_data[new_port_key] = {
         "PORT": None,
         "PORT_protocols": "",
-        "record_id": None,
         "SubDomain": "",
-        "RecordLine": "",
+        "RecordLine": "默认",
         "priority": f"0 {next_port_num}",
     }
     
@@ -620,7 +643,7 @@ if __name__ == '__main__':
     # 设置环境变量，禁用冻结模块
     os.environ['PYTHONMALLOC'] = 'debug'  
     os.environ['PYDEVD_DISABLE_FILE_VALIDATION'] = '1'
-    app.config['DEBUG'] = True   # 可选，用于启用内存调试
+    app.config['DEBUG'] = False   # 可选，用于启用内存调试
 
 
 

@@ -45,26 +45,27 @@
                             <i class="fas fa-plug"></i>
                             {{ port_key }}
                         </h2>
-                        <form action="{{ url_for('delete_port', port_key=port_key) }}" method="POST" class="delete-form">
-                            {{ form.csrf_token }}
-                            <button type="submit" class="btn btn-danger">
-                                <i class="fas fa-trash"></i>
-                                Delete
-                            </button>
-                        </form>
+                        <button type="submit"
+                                formaction="{{ url_for('delete_port', port_key=port_key) }}"
+                                formmethod="POST"
+                                class="btn btn-danger"
+                                onclick="return confirm('确定删除 {{ port_key }} 吗？');">
+                            <i class="fas fa-trash"></i>
+                            Delete
+                        </button>
                     </div>
 
                     <div class="form-group">
                         <label class="form-label">Record ID</label>
                         <input type="number" name="{{ port_key }}-record_id" class="form-control" 
-                               value="{{ port_form.record_id.data if port_form.record_id.data is not none else '' }}"
+                               value="{{ display_field_value(port_form.record_id.data) }}"
                                placeholder="Git ID返回的ID（选填）">
                     </div>
 
                     <div class="form-group">
                         <label class="form-label">Port</label>
                         <input type="number" name="{{ port_key }}-port" class="form-control" 
-                               value="{{ port_form.port.data if port_form.port.data is not none else '' }}"
+                               value="{{ display_field_value(port_form.port.data) }}"
                                placeholder="需要穿透的端口号">
                     </div>
 
@@ -79,21 +80,21 @@
                     <div class="form-group">
                         <label class="form-label">Subdomain</label>
                         <input type="text" name="{{ port_key }}-subdomain" class="form-control" 
-                               value="{{ port_form.subdomain.data }}"
+                               value="{{ display_field_value(port_form.subdomain.data) }}"
                                placeholder="_service._protocol">
                     </div>
 
                     <div class="form-group">
                         <label class="form-label">Record Line</label>
                         <input type="text" name="{{ port_key }}-record_line" class="form-control" 
-                               value="{{ port_form.record_line.data }}"
+                               value="{{ display_field_value(port_form.record_line.data) }}"
                                placeholder="默认">
                     </div>
 
                     <div class="form-group">
                         <label class="form-label">Priority</label>
                         <input type="text" name="{{ port_key }}-priority" class="form-control" 
-                               value="{{ port_form.priority.data }}"
+                               value="{{ display_field_value(port_form.priority.data) }}"
                                placeholder="0 5">
                     </div>
                 </div>

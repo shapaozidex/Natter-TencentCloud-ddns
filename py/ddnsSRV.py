@@ -102,14 +102,18 @@ def get_config_by_port(configs, target_port):
     # 寻找匹配的PORT项
     for key, value in configs.items():
         if "PORT" in value and value["PORT"] == target_port:
-            return value
-    return None
+            return key, value
+    return None, None
 
 # 从 Static_Port() 获取动态的PORT
 dynamic_port_from_startup = Static_Port()
 
 # 根据启动项传入的PORT获取相应的配置
-port_config = get_config_by_port(configs_SRV, dynamic_port_from_startup)
+port_key, port_config = get_config_by_port(configs_SRV, dynamic_port_from_startup)
+
+if not port_config:
+    logging.error(f"未找到本地端口 {dynamic_port_from_startup} 对应的 Natter 配置")
+    sys.exit(1)
 
 
 
@@ -136,34 +140,82 @@ client = dnspod_client.DnspodClient(cred, "", client_profile)
 last_PORT = None
 
 
+def get_record_line(port_config):
+    """空字符串不算已配置，需回退到默认线路"""
+    line = (port_config.get("RecordLine") or "").strip()
+    if line:
+        return line
+    return (config_static_SRV.get("RecordLine") or "").strip() or "默认"
 
 
-def create_srv_record(client, domain, port_config, dynamic_port):
-    """创建新的SRV记录"""
+def update_natter_record_id(target_port_key, record_id):
+    """仅更新指定端口的 record_id，避免多进程同时写整文件时互相覆盖"""
+    lock_path = config_srv_path + '.lock'
+    for _ in range(50):
+        try:
+            fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            os.close(fd)
+            try:
+                with open(config_srv_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                if target_port_key not in data:
+                    logging.error(f"配置项 {target_port_key} 不存在，无法保存 Record ID")
+                    return False
+                data[target_port_key]['record_id'] = record_id
+                with open(config_srv_path, 'w', encoding='utf-8') as f:
+                    json.dump(data, f, indent=4, ensure_ascii=False)
+                return True
+            finally:
+                try:
+                    os.remove(lock_path)
+                except OSError:
+                    pass
+        except FileExistsError:
+            time.sleep(0.1)
+    logging.error(f"保存 Record ID 超时：{target_port_key}")
+    return False
+
+
+def bind_record_id(target_port_key, port_config, record_id, reason):
+    port_config["record_id"] = record_id
+    if update_natter_record_id(target_port_key, record_id):
+        logging.info(f"{reason}，Record ID: {record_id}，已写入 {target_port_key}")
+        return record_id
+    logging.warning(f"{reason}，Record ID: {record_id}，但写入配置失败")
+    return record_id
+
+
+def create_srv_record(client, domain, target_port_key, port_config, dynamic_port):
+    """无 Record ID 时创建新的 SRV 记录"""
     try:
         req = models.CreateRecordRequest()
         params = {
             "Domain": domain,
             "SubDomain": port_config.get("SubDomain"),
-            "RecordType": "SRV",  # SRV记录类型是固定的
-            "RecordLine": port_config.get("RecordLine", "默认"),  # 如果没有配置，使用默认
-            "Value": f"{port_config.get('priority', '0 1')} {dynamic_port} {domain}"  # 如果没有priority，使用默认值
+            "RecordType": "SRV",
+            "RecordLine": get_record_line(port_config),
+            "Value": f"{port_config.get('priority', '0 1')} {dynamic_port} {domain}",
         }
         req.from_json_string(json.dumps(params))
         resp = client.CreateRecord(req)
-        
-        # 更新配置文件中的record_id
-        port_config["record_id"] = resp.RecordId
-        with open(config_srv_path, 'w', encoding='utf-8') as f:
-            json.dump(configs_SRV, f, indent=4, ensure_ascii=False)
-            
-        log_message = f"成功创建SRV记录，Record ID: {resp.RecordId}"
-        logging.info(log_message)
-        return resp.RecordId
+        return bind_record_id(target_port_key, port_config, resp.RecordId, "成功创建SRV记录")
     except TencentCloudSDKException as err:
-        log_error = f"创建SRV记录失败：{err}"
-        logging.error(log_error)
+        logging.error(f"创建SRV记录失败：{err}")
         return None
+
+
+def modify_srv_record(client, domain, port_config, dynamic_port):
+    req = models.ModifyRecordRequest()
+    params = {
+        "Domain": domain,
+        "SubDomain": port_config["SubDomain"],
+        "RecordType": "SRV",
+        "RecordId": port_config["record_id"],
+        "RecordLine": get_record_line(port_config),
+        "Value": f"{port_config['priority']} {dynamic_port} {domain}",
+    }
+    req.from_json_string(json.dumps(params))
+    return client.ModifyRecord(req)
 
 try:
     while True:
@@ -181,29 +233,17 @@ try:
             last_PORT = PORT     #有变化就写进去
 
             try:
-                # 检查是否存在record_id
                 if not port_config.get("record_id"):
-                    # 创建新的SRV记录
-                    record_id = create_srv_record(client, domain_config["domain"], port_config, PORT)
+                    record_id = create_srv_record(
+                        client, domain_config["domain"], port_key, port_config, PORT
+                    )
                     if not record_id:
                         log_message = "创建SRV记录失败，跳过本次更新"
                         logging.error(log_message)
                         continue
-                
-                # 修改 DDNS 记录
-                req = models.ModifyRecordRequest()
-                params = {
-                    "Domain": domain_config["domain"],
-                    "SubDomain": port_config["SubDomain"],
-                    "RecordType": "SRV",  # SRV记录类型是固定的
-                    "RecordId": port_config["record_id"],
-                    "RecordLine": port_config["RecordLine"],
-                    "Value": f"{port_config['priority']} {PORT} {domain_config['domain']}"
-                }
-                req.from_json_string(json.dumps(params))
-                resp = client.ModifyRecord(req)
 
-                # 打印更新成功消息和当前端口号
+                modify_srv_record(client, domain_config["domain"], port_config, PORT)
+
                 log_message = f"您的域名 {domain_config['domain']} 更新成功, 当前端口号 {PORT}"
                 logging.info(log_message)
 
